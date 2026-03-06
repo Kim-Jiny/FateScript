@@ -1,0 +1,179 @@
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../models/birth_info.dart';
+import '../models/compatibility_result.dart';
+import '../models/daily_fortune.dart';
+import '../models/diary_result.dart';
+import '../models/fortune_result.dart';
+
+class StorageService {
+  static const _keyBirthDate = 'birth_date';
+  static const _keyBirthTime = 'birth_time';
+  static const _keyGender = 'gender';
+  static const _keyFortuneResult = 'fortune_result';
+  static const _keyFortuneSavedYear = 'fortune_saved_year';
+  static const _keyDailyFortune = 'daily_fortune';
+  static const _keyDailyFortuneSavedDate = 'daily_fortune_saved_date';
+  static const _keyCompatibility = 'compatibility_result';
+  static const _keyCompatibilitySavedYear = 'compatibility_saved_year';
+  static const _keyDiaryHistory = 'diary_history';
+
+  Future<void> saveBirthInfo(BirthInfo info) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyBirthDate, info.birthDate);
+    await prefs.setString(_keyBirthTime, info.birthTime ?? 'unknown');
+    await prefs.setString(_keyGender, info.gender);
+  }
+
+  Future<BirthInfo?> loadBirthInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+    final birthDate = prefs.getString(_keyBirthDate);
+    final gender = prefs.getString(_keyGender);
+    if (birthDate == null || gender == null) return null;
+
+    final birthTime = prefs.getString(_keyBirthTime);
+    return BirthInfo(
+      birthDate: birthDate,
+      birthTime: birthTime,
+      gender: gender,
+    );
+  }
+
+  // ── 내 사주 (연도 단위 만료) ──
+
+  Future<void> saveFortuneResult(FortuneResult result) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyFortuneResult, jsonEncode(result.toJson()));
+    await prefs.setInt(_keyFortuneSavedYear, DateTime.now().year);
+  }
+
+  Future<FortuneResult?> loadFortuneResult() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedYear = prefs.getInt(_keyFortuneSavedYear);
+    if (savedYear != null && savedYear != DateTime.now().year) {
+      await clearFortuneResult();
+      return null;
+    }
+    final json = prefs.getString(_keyFortuneResult);
+    if (json == null) return null;
+    try {
+      return FortuneResult.fromJson(jsonDecode(json) as Map<String, dynamic>);
+    } catch (_) {
+      await clearFortuneResult();
+      return null;
+    }
+  }
+
+  Future<void> clearFortuneResult() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyFortuneResult);
+    await prefs.remove(_keyFortuneSavedYear);
+  }
+
+  // ── 오늘의 운세 (날짜 단위 만료) ──
+
+  Future<void> saveDailyFortune(DailyFortune result) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyDailyFortune, jsonEncode(result.toJson()));
+    final now = DateTime.now();
+    final dateStr =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    await prefs.setString(_keyDailyFortuneSavedDate, dateStr);
+  }
+
+  Future<DailyFortune?> loadDailyFortune() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedDate = prefs.getString(_keyDailyFortuneSavedDate);
+    if (savedDate != null) {
+      final now = DateTime.now();
+      final todayStr =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      if (savedDate != todayStr) {
+        await clearDailyFortune();
+        return null;
+      }
+    }
+    final json = prefs.getString(_keyDailyFortune);
+    if (json == null) return null;
+    try {
+      return DailyFortune.fromJson(jsonDecode(json) as Map<String, dynamic>);
+    } catch (_) {
+      await clearDailyFortune();
+      return null;
+    }
+  }
+
+  Future<void> clearDailyFortune() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyDailyFortune);
+    await prefs.remove(_keyDailyFortuneSavedDate);
+  }
+
+  // ── 궁합 (연도 단위 만료) ──
+
+  Future<void> saveCompatibility(CompatibilityResult result) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyCompatibility, jsonEncode(result.toJson()));
+    await prefs.setInt(_keyCompatibilitySavedYear, DateTime.now().year);
+  }
+
+  Future<CompatibilityResult?> loadCompatibility() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedYear = prefs.getInt(_keyCompatibilitySavedYear);
+    if (savedYear != null && savedYear != DateTime.now().year) {
+      await clearCompatibility();
+      return null;
+    }
+    final json = prefs.getString(_keyCompatibility);
+    if (json == null) return null;
+    try {
+      return CompatibilityResult.fromJson(
+          jsonDecode(json) as Map<String, dynamic>);
+    } catch (_) {
+      await clearCompatibility();
+      return null;
+    }
+  }
+
+  Future<void> clearCompatibility() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyCompatibility);
+    await prefs.remove(_keyCompatibilitySavedYear);
+  }
+
+  Future<void> saveDiaryEntry(DiaryResult entry) async {
+    final prefs = await SharedPreferences.getInstance();
+    final history = await loadDiaryHistory();
+    history.insert(0, entry);
+    final jsonList = history.map((e) => e.toJson()).toList();
+    await prefs.setString(_keyDiaryHistory, jsonEncode(jsonList));
+  }
+
+  Future<List<DiaryResult>> loadDiaryHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final json = prefs.getString(_keyDiaryHistory);
+    if (json == null) return [];
+    final list = jsonDecode(json) as List;
+    return list
+        .map((e) => DiaryResult.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<void> deleteDiaryEntry(int id) async {
+    final prefs = await SharedPreferences.getInstance();
+    final history = await loadDiaryHistory();
+    history.removeWhere((e) => e.id == id);
+    final jsonList = history.map((e) => e.toJson()).toList();
+    await prefs.setString(_keyDiaryHistory, jsonEncode(jsonList));
+  }
+
+  Future<void> clear() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyBirthDate);
+    await prefs.remove(_keyBirthTime);
+    await prefs.remove(_keyGender);
+    await clearFortuneResult();
+    await clearDailyFortune();
+    await clearCompatibility();
+  }
+}

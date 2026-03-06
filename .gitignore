@@ -1,0 +1,27 @@
+# env
+.env
+.env.local
+server/.env
+server/.env.local
+
+# node
+server/node_modules/
+
+# flutter
+mobile/build/
+mobile/.dart_tool/
+mobile/.packages
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# macOS
+.DS_Store
+
+# claude
+.claude/

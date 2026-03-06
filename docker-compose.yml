@@ -1,0 +1,46 @@
+name: fate-script
+
+services:
+  fate-script:
+    build: ./server
+    container_name: fate-script
+    restart: unless-stopped
+    ports:
+      - "3002:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=postgresql://fate:${DB_PASSWORD}@fate-db:5432/fate
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  db:
+    image: postgres:16-alpine
+    container_name: fate-db
+    restart: unless-stopped
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:55435:5432"
+    environment:
+      - POSTGRES_DB=fate
+      - POSTGRES_USER=fate
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fate -d fate"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - app-network
+
+volumes:
+  pgdata:
+
+networks:
+  app-network:

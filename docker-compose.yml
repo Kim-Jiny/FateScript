@@ -10,7 +10,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - DATABASE_URL=postgresql://fate:${DB_PASSWORD}@fate-db:5432/fate
+      - DATABASE_URL=${DATABASE_URL}
     env_file:
       - .env
     depends_on:
@@ -41,6 +41,7 @@ services:
 
 volumes:
   pgdata:
-
+  
 networks:
   app-network:
+    external: true

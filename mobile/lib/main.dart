@@ -15,13 +15,19 @@ void main() async {
 
   final authProvider = AuthProvider();
   await authProvider.waitForAuthReady();
+  debugPrint('[Main] authProvider.isLoggedIn=${authProvider.isLoggedIn}');
 
   final birthInfoProvider = BirthInfoProvider();
   await birthInfoProvider.load();
+  debugPrint('[Main] birthInfo loaded: ${birthInfoProvider.hasBirthInfo}');
 
   // 로그인 상태면 서버와 사주 동기화
   if (authProvider.isLoggedIn) {
+    debugPrint('[Main] Starting syncWithServer...');
     await birthInfoProvider.syncWithServer();
+    debugPrint('[Main] syncWithServer done');
+  } else {
+    debugPrint('[Main] Not logged in, skipping sync');
   }
 
   final fortuneProvider = FortuneProvider();

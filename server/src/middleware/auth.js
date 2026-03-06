@@ -27,6 +27,7 @@ export async function optionalAuth(req, _res, next) {
 export async function requireAuth(req, res, next) {
   const header = req.headers.authorization;
   if (!header?.startsWith('Bearer ')) {
+    console.log(`[requireAuth] No bearer token for ${req.method} ${req.path}`);
     return res.status(401).json({ error: '인증이 필요합니다.' });
   }
 
@@ -35,8 +36,10 @@ export async function requireAuth(req, res, next) {
     const decoded = await admin.auth().verifyIdToken(token);
     req.uid = decoded.uid;
     req.userEmail = decoded.email ?? null;
+    console.log(`[requireAuth] OK uid=${decoded.uid} for ${req.method} ${req.path}`);
     next();
-  } catch {
+  } catch (err) {
+    console.log(`[requireAuth] Token verification failed for ${req.method} ${req.path}: ${err.message}`);
     res.status(401).json({ error: '유효하지 않은 인증 토큰입니다.' });
   }
 }

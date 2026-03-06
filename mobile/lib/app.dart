@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'screens/home_screen.dart';
@@ -51,6 +52,15 @@ class UnmyeongDiaryApp extends StatelessWidget {
           ),
         ),
       ),
+      builder: (context, child) {
+        final scale = Platform.isAndroid ? 1.0 : 1.15;
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(scale),
+          ),
+          child: child!,
+        );
+      },
       home: const MainShell(),
     );
   }

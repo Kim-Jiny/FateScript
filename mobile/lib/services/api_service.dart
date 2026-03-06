@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/birth_info.dart';
 import '../models/fortune_result.dart';
@@ -145,6 +146,7 @@ class ApiService {
   // ── Auth API ──
 
   Future<void> saveUserSaju(BirthInfo info) async {
+    debugPrint('[API] saveUserSaju: hasToken=${_authToken != null}, body=${jsonEncode(info.toJson())}');
     final response = await http
         .post(
           Uri.parse('$_baseUrl/api/user/saju'),
@@ -153,6 +155,7 @@ class ApiService {
         )
         .timeout(_timeout);
 
+    debugPrint('[API] saveUserSaju: status=${response.statusCode}, body=${response.body}');
     if (response.statusCode != 200) {
       throw Exception('사주 저장에 실패했습니다 (${response.statusCode})');
     }

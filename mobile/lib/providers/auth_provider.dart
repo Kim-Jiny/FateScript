@@ -34,8 +34,10 @@ class AuthProvider extends ChangeNotifier {
 
   /// Firebase Auth 세션 복원을 대기
   Future<void> waitForAuthReady() async {
+    debugPrint('[Auth] waitForAuthReady: waiting for auth state...');
     final user = await _authService.authStateChanges.first;
     _user = user;
+    debugPrint('[Auth] waitForAuthReady: user=${user?.uid}, email=${user?.email}');
     if (user != null) {
       await updateApiToken();
     }
@@ -47,6 +49,7 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> updateApiToken() async {
     final token = await getIdToken();
+    debugPrint('[Auth] updateApiToken: token=${token != null ? '${token.substring(0, 20)}...' : 'NULL'}');
     _apiService.setAuthToken(token);
   }
 

@@ -9,23 +9,26 @@ const router = Router();
  */
 router.post('/saju', requireAuth, async (req, res) => {
   try {
+    console.log(`[user/saju] POST uid=${req.uid} email=${req.userEmail} body=${JSON.stringify(req.body)}`);
     const { birthDate, birthTime, gender } = req.body ?? {};
 
     if (!birthDate || !gender) {
+      console.log('[user/saju] Missing required fields');
       return res.status(400).json({ error: 'birthDate, gender는 필수입니다.' });
     }
 
-    await pool.query(
+    const result = await pool.query(
       `INSERT INTO users (uid, email, birth_date, birth_time, gender, updated_at)
        VALUES ($1, $2, $3, $4, $5, now())
        ON CONFLICT (uid) DO UPDATE
        SET email = $2, birth_date = $3, birth_time = $4, gender = $5, updated_at = now()`,
       [req.uid, req.userEmail, birthDate, birthTime ?? 'unknown', gender],
     );
+    console.log(`[user/saju] DB result: rowCount=${result.rowCount}`);
 
     res.json({ ok: true });
   } catch (err) {
-    console.error('Save saju error:', err);
+    console.error('[user/saju] Save saju error:', err);
     res.status(500).json({ error: '사주 저장 중 오류가 발생했습니다.' });
   }
 });

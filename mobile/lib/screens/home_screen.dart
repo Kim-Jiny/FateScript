@@ -4,6 +4,7 @@ import '../providers/auth_provider.dart';
 import '../providers/birth_info_provider.dart';
 import 'input_screen.dart';
 import 'login_screen.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -148,16 +149,30 @@ class HomeScreen extends StatelessWidget {
   Widget _authButton(BuildContext context, AuthProvider authProvider) {
     if (authProvider.isLoggedIn) {
       return GestureDetector(
-        onTap: () => _showProfileMenu(context, authProvider),
-        child: CircleAvatar(
-          radius: 18,
-          backgroundColor: const Color(0xFF8A4FFF).withValues(alpha: 0.15),
-          backgroundImage: authProvider.photoUrl != null
-              ? NetworkImage(authProvider.photoUrl!)
-              : null,
-          child: authProvider.photoUrl == null
-              ? const Icon(Icons.person, size: 20, color: Color(0xFF8A4FFF))
-              : null,
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const SettingsScreen()),
+        ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF8A4FFF).withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.settings, size: 16, color: Color(0xFF8A4FFF)),
+              SizedBox(width: 6),
+              Text(
+                '설정',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF8A4FFF),
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -186,65 +201,6 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  void _showProfileMenu(BuildContext context, AuthProvider authProvider) {
-    showModalBottomSheet(
-      context: context,
-      builder: (_) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircleAvatar(
-                radius: 30,
-                backgroundColor:
-                    const Color(0xFF8A4FFF).withValues(alpha: 0.15),
-                backgroundImage: authProvider.photoUrl != null
-                    ? NetworkImage(authProvider.photoUrl!)
-                    : null,
-                child: authProvider.photoUrl == null
-                    ? const Icon(Icons.person,
-                        size: 30, color: Color(0xFF8A4FFF))
-                    : null,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                authProvider.displayName ?? '사용자',
-                style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.w700),
-              ),
-              if (authProvider.email != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  authProvider.email!,
-                  style: const TextStyle(
-                      fontSize: 12, color: Color(0xFF6B7280)),
-                ),
-              ],
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: () {
-                    authProvider.signOut();
-                    Navigator.of(context).pop();
-                  },
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.red,
-                    side: const BorderSide(color: Colors.red),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: const Text('로그아웃'),
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );

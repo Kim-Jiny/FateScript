@@ -56,4 +56,21 @@ router.get('/saju', requireAuth, async (req, res) => {
   }
 });
 
+/**
+ * DELETE /api/user/account — 회원탈퇴 (모든 유저 데이터 삭제)
+ */
+router.delete('/account', requireAuth, async (req, res) => {
+  try {
+    const uid = req.uid;
+
+    await pool.query('DELETE FROM compatibility_history WHERE uid = $1', [uid]);
+    await pool.query('DELETE FROM users WHERE uid = $1', [uid]);
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Delete account error:', err);
+    res.status(500).json({ error: '계정 삭제 중 오류가 발생했습니다.' });
+  }
+});
+
 export default router;

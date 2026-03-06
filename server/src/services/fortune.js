@@ -30,13 +30,30 @@ const CATEGORY_META = [
   { key: 'advice',        label: '운명선생의 한마디', emoji: '🍀' },
 ];
 
-function parseFortuneResponse(text) {
-  try {
-    // Gemini가 ```json ... ``` 로 감쌀 수 있으므로 제거
-    const cleaned = text.replace(/^```(?:json)?\s*\n?/m, '').replace(/\n?```\s*$/m, '').trim();
-    const parsed = JSON.parse(cleaned);
+function extractJson(text) {
+  // 1) ```json ... ``` 블록에서 추출
+  const fenced = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+  if (fenced) {
+    try { return JSON.parse(fenced[1].trim()); } catch {}
+  }
 
-    const interpretation = parsed.interpretation ?? '';
+  // 2) 첫 번째 { ... 마지막 } 추출
+  const first = text.indexOf('{');
+  const last = text.lastIndexOf('}');
+  if (first !== -1 && last > first) {
+    try { return JSON.parse(text.slice(first, last + 1)); } catch {}
+  }
+
+  // 3) 전체 시도
+  try { return JSON.parse(text.trim()); } catch {}
+
+  return null;
+}
+
+function parseFortuneResponse(text) {
+  const parsed = extractJson(text);
+
+  if (parsed && parsed.interpretation) {
     const rawCats = parsed.categories ?? {};
 
     const categories = CATEGORY_META
@@ -48,11 +65,11 @@ function parseFortuneResponse(text) {
         content: rawCats[key],
       }));
 
-    return { interpretation, categories };
-  } catch {
-    // JSON 파싱 실패 시 fallback: 전체 텍스트를 interpretation으로
-    return { interpretation: text, categories: [] };
+    return { interpretation: parsed.interpretation, categories };
   }
+
+  // JSON 파싱 실패 시 fallback: 전체 텍스트를 interpretation으로
+  return { interpretation: text, categories: [] };
 }
 
 /**
@@ -157,13 +174,7 @@ export async function analyzeNameFortune({ year, month, day, hour, minute, gende
   const prompt = buildNameAnalysisPrompt(sajuInfo, name, gender);
   const rawText = await askGemini(prompt, getSystemPrompt('year'));
 
-  let result;
-  try {
-    const cleaned = rawText.replace(/^```(?:json)?\s*\n?/m, '').replace(/\n?```\s*$/m, '').trim();
-    result = JSON.parse(cleaned);
-  } catch {
-    result = { raw: rawText };
-  }
+  const result = extractJson(rawText) ?? { raw: rawText };
 
   await pool.query(
     'INSERT INTO name_analysis_cache (cache_key, result) VALUES ($1, $2) ON CONFLICT (cache_key) DO NOTHING',
@@ -193,13 +204,7 @@ export async function recommendNames({ year, month, day, hour, minute, gender, l
   const prompt = buildNameRecommendPrompt(sajuInfo, lastName, gender);
   const rawText = await askGemini(prompt, getSystemPrompt('year'));
 
-  let result;
-  try {
-    const cleaned = rawText.replace(/^```(?:json)?\s*\n?/m, '').replace(/\n?```\s*$/m, '').trim();
-    result = JSON.parse(cleaned);
-  } catch {
-    result = { raw: rawText };
-  }
+  const result = extractJson(rawText) ?? { raw: rawText };
 
   await pool.query(
     'INSERT INTO name_analysis_cache (cache_key, result) VALUES ($1, $2) ON CONFLICT (cache_key) DO NOTHING',

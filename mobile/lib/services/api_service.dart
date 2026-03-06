@@ -9,7 +9,7 @@ import '../models/compatibility_result.dart';
 class ApiService {
   static const _baseUrl = 'https://fate.jiny.shop';
 
-  static const _timeout = Duration(seconds: 30);
+  static const _timeout = Duration(seconds: 60);
 
   String? _authToken;
 
@@ -174,6 +174,19 @@ class ApiService {
       birthTime: json['birthTime'] as String?,
       gender: json['gender'] as String,
     );
+  }
+
+  Future<void> deleteAccount() async {
+    final response = await http
+        .delete(
+          Uri.parse('$_baseUrl/api/user/account'),
+          headers: _headers,
+        )
+        .timeout(_timeout);
+
+    if (response.statusCode != 200) {
+      throw Exception('계정 삭제에 실패했습니다 (${response.statusCode})');
+    }
   }
 
   // ── Compatibility History API ──

@@ -121,7 +121,8 @@ class FortuneProvider extends ChangeNotifier {
   }
 
   Future<void> fetchCompatibility(
-      BirthInfo myInfo, BirthInfo partnerInfo, String relationship) async {
+      BirthInfo myInfo, BirthInfo partnerInfo, String relationship,
+      {bool isLoggedIn = false}) async {
     _isLoading = true;
     _error = null;
     _compatibilityResult = null;
@@ -131,6 +132,29 @@ class FortuneProvider extends ChangeNotifier {
       _compatibilityResult =
           await _api.getCompatibility(myInfo, partnerInfo, relationship);
       await _storage.saveCompatibility(_compatibilityResult!);
+
+      // 히스토리에 추가
+      if (isLoggedIn) {
+        // 서버에서 히스토리 다시 로드 (서버가 자동 저장함)
+        await loadCompatibilityHistory(fromServer: true);
+      } else {
+        // 로컬 히스토리에 직접 추가
+        final entry = {
+          'id': DateTime.now().millisecondsSinceEpoch,
+          'myBirthDate': myInfo.birthDate,
+          'myBirthTime': myInfo.birthTime,
+          'myGender': myInfo.gender,
+          'partnerBirthDate': partnerInfo.birthDate,
+          'partnerBirthTime': partnerInfo.birthTime,
+          'partnerGender': partnerInfo.gender,
+          'relationship': relationship,
+          'result': _compatibilityResult!.toJson(),
+          'createdAt': DateTime.now().toIso8601String(),
+        };
+        await _storage.addCompatibilityHistoryEntry(entry);
+        _compatibilityHistory.insert(
+            0, CompatibilityHistoryItem.fromJson(entry));
+      }
     } catch (e) {
       _error = e.toString();
     } finally {

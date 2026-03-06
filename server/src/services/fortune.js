@@ -53,7 +53,7 @@ function extractJson(text) {
 function parseFortuneResponse(text) {
   const parsed = extractJson(text);
 
-  if (parsed && parsed.interpretation) {
+  if (parsed && (parsed.manseryeok || parsed.interpretation)) {
     const rawCats = parsed.categories ?? {};
 
     const categories = CATEGORY_META
@@ -65,11 +65,16 @@ function parseFortuneResponse(text) {
         content: rawCats[key],
       }));
 
-    return { interpretation: parsed.interpretation, categories };
+    return {
+      manseryeok: parsed.manseryeok ?? parsed.interpretation ?? '',
+      yearFortune: parsed.yearFortune ?? '',
+      interpretation: parsed.manseryeok ?? parsed.interpretation ?? '',
+      categories,
+    };
   }
 
   // JSON 파싱 실패 시 fallback: 전체 텍스트를 interpretation으로
-  return { interpretation: text, categories: [] };
+  return { manseryeok: text, yearFortune: '', interpretation: text, categories: [] };
 }
 
 /**
@@ -92,7 +97,7 @@ export async function interpretFortune({ year, month, day, hour, minute, gender 
   const sajuInfo = getSajuInfo(year, month, day, hour, minute);
   const prompt = buildFortunePrompt(sajuInfo, gender);
   const rawText = await askGemini(prompt, getSystemPrompt('year'));
-  const { interpretation, categories } = parseFortuneResponse(rawText);
+  const { manseryeok, yearFortune, interpretation, categories } = parseFortuneResponse(rawText);
 
   const result = {
     saju: sajuInfo.saju,
@@ -103,6 +108,8 @@ export async function interpretFortune({ year, month, day, hour, minute, gender 
       weak: sajuInfo.oheng.weakInfo,
       summary: sajuInfo.oheng.summary,
     },
+    manseryeok,
+    yearFortune,
     interpretation,
     categories,
   };

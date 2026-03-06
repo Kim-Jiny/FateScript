@@ -87,6 +87,8 @@ class FortuneResult {
   final SajuPillar dayPillar;
   final SajuPillar? hourPillar;
   final OhengInfo oheng;
+  final String manseryeok;
+  final String yearFortune;
   final String interpretation;
   final List<FortuneCategory> categories;
 
@@ -96,6 +98,8 @@ class FortuneResult {
     required this.dayPillar,
     this.hourPillar,
     required this.oheng,
+    this.manseryeok = '',
+    this.yearFortune = '',
     required this.interpretation,
     this.categories = const [],
   });
@@ -114,7 +118,11 @@ class FortuneResult {
           ? SajuPillar.fromJson(saju['hourPillar'] as Map<String, dynamic>)
           : null,
       oheng: OhengInfo.fromJson(json['oheng'] as Map<String, dynamic>),
-      interpretation: json['interpretation'] as String,
+      manseryeok: (json['manseryeok'] as String?) ?? '',
+      yearFortune: (json['yearFortune'] as String?) ?? '',
+      interpretation: (json['interpretation'] as String?) ??
+          (json['manseryeok'] as String?) ??
+          '',
       categories: rawCategories
               ?.map((e) =>
                   FortuneCategory.fromJson(e as Map<String, dynamic>))
@@ -131,6 +139,8 @@ class FortuneResult {
           'hourPillar': hourPillar?.toJson(),
         },
         'oheng': oheng.toJson(),
+        'manseryeok': manseryeok,
+        'yearFortune': yearFortune,
         'interpretation': interpretation,
         'categories': categories.map((c) => c.toJson()).toList(),
       };

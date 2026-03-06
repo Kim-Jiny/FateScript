@@ -21,6 +21,11 @@ void main() async {
   final birthInfoProvider = BirthInfoProvider();
   await birthInfoProvider.load();
 
+  // 로그인 상태면 서버와 사주 동기화
+  if (authProvider.isLoggedIn) {
+    await birthInfoProvider.syncWithServer();
+  }
+
   final fortuneProvider = FortuneProvider();
   await fortuneProvider.loadSavedFortune();
 

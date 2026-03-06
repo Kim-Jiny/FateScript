@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/birth_info_provider.dart';
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
@@ -105,14 +106,22 @@ class LoginScreen extends StatelessWidget {
   void _signInWithGoogle(BuildContext context, AuthProvider authProvider) async {
     final success = await authProvider.signInWithGoogle();
     if (success && context.mounted) {
-      Navigator.of(context).pop(true);
+      await _syncAfterLogin(context);
+      if (context.mounted) Navigator.of(context).pop(true);
     }
   }
 
   void _signInWithApple(BuildContext context, AuthProvider authProvider) async {
     final success = await authProvider.signInWithApple();
     if (success && context.mounted) {
-      Navigator.of(context).pop(true);
+      await _syncAfterLogin(context);
+      if (context.mounted) Navigator.of(context).pop(true);
     }
+  }
+
+  Future<void> _syncAfterLogin(BuildContext context) async {
+    final birthProvider =
+        Provider.of<BirthInfoProvider>(context, listen: false);
+    await birthProvider.syncWithServer();
   }
 }

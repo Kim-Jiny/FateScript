@@ -9,8 +9,15 @@ import '../widgets/oheng_chart.dart';
 import '../widgets/loading_overlay.dart';
 import 'input_screen.dart';
 
-class FortuneScreen extends StatelessWidget {
+class FortuneScreen extends StatefulWidget {
   const FortuneScreen({super.key});
+
+  @override
+  State<FortuneScreen> createState() => _FortuneScreenState();
+}
+
+class _FortuneScreenState extends State<FortuneScreen> {
+  final Set<String> _expanded = {'manseryeok'};
 
   @override
   Widget build(BuildContext context) {
@@ -44,15 +51,18 @@ class FortuneScreen extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.person_outline, size: 64, color: Color(0xFFD1D5DB)),
+            const Icon(Icons.person_outline,
+                size: 64, color: Color(0xFFD1D5DB)),
             const SizedBox(height: 16),
-            const Text('사주 정보를 먼저 입력해 주세요.', style: TextStyle(fontSize: 14, color: Color(0xFF6B7280))),
+            const Text('사주 정보를 먼저 입력해 주세요.',
+                style: TextStyle(fontSize: 14, color: Color(0xFF6B7280))),
             const SizedBox(height: 20),
             FilledButton(
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const InputScreen()),
               ),
-              style: FilledButton.styleFrom(backgroundColor: const Color(0xFF8A4FFF)),
+              style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF8A4FFF)),
               child: const Text('사주 입력하기'),
             ),
           ],
@@ -61,24 +71,30 @@ class FortuneScreen extends StatelessWidget {
     );
   }
 
-  Widget _emptyState(BuildContext context, BirthInfoProvider birthProvider, FortuneProvider fortuneProvider) {
+  Widget _emptyState(BuildContext context, BirthInfoProvider birthProvider,
+      FortuneProvider fortuneProvider) {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           const Icon(Icons.auto_awesome, size: 64, color: Color(0xFF8A4FFF)),
           const SizedBox(height: 16),
-          const Text('내 사주 해석', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+          const Text('내 사주 해석',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
-          const Text('전체 사주팔자를 AI가 분석합니다.', style: TextStyle(color: Color(0xFF6B7280))),
+          const Text('전체 사주팔자를 AI가 분석합니다.',
+              style: TextStyle(color: Color(0xFF6B7280))),
           if (fortuneProvider.error != null) ...[
             const SizedBox(height: 12),
-            Text(fortuneProvider.error!, style: const TextStyle(color: Colors.red, fontSize: 11)),
+            Text(fortuneProvider.error!,
+                style: const TextStyle(color: Colors.red, fontSize: 11)),
           ],
           const SizedBox(height: 24),
           FilledButton(
-            onPressed: () => fortuneProvider.fetchFortune(birthProvider.birthInfo!),
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF8A4FFF)),
+            onPressed: () =>
+                fortuneProvider.fetchFortune(birthProvider.birthInfo!),
+            style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF8A4FFF)),
             child: const Text('사주 분석 시작'),
           ),
         ],
@@ -86,9 +102,17 @@ class FortuneScreen extends StatelessWidget {
     );
   }
 
-  Widget _resultView(BuildContext context, FortuneResult result, FortuneProvider fortuneProvider, BirthInfoProvider birthProvider) {
+  Widget _resultView(BuildContext context, FortuneResult result,
+      FortuneProvider fortuneProvider, BirthInfoProvider birthProvider) {
+    // 만세력 내용 결정 (새 필드 우선, 이전 캐시 호환)
+    final manseryeokContent =
+        result.manseryeok.isNotEmpty ? result.manseryeok : result.interpretation;
+
     return RefreshIndicator(
-      onRefresh: () => fortuneProvider.fetchFortune(birthProvider.birthInfo!),
+      onRefresh: () async {
+        await fortuneProvider.clearSavedFortune();
+        await fortuneProvider.fetchFortune(birthProvider.birthInfo!);
+      },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(20),
@@ -96,63 +120,103 @@ class FortuneScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 8),
-            const Text('내 사주팔자', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
+            const Text('내 사주팔자',
+                style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
             const SizedBox(height: 16),
+            // 사주 기둥
             Row(
               children: [
-                Expanded(child: PillarCard(label: '년주', pillar: result.yearPillar, oheng: result.oheng)),
+                Expanded(
+                    child: PillarCard(
+                        label: '년주',
+                        pillar: result.yearPillar,
+                        oheng: result.oheng)),
                 const SizedBox(width: 8),
-                Expanded(child: PillarCard(label: '월주', pillar: result.monthPillar, oheng: result.oheng)),
+                Expanded(
+                    child: PillarCard(
+                        label: '월주',
+                        pillar: result.monthPillar,
+                        oheng: result.oheng)),
                 const SizedBox(width: 8),
-                Expanded(child: PillarCard(label: '일주', pillar: result.dayPillar, oheng: result.oheng)),
+                Expanded(
+                    child: PillarCard(
+                        label: '일주',
+                        pillar: result.dayPillar,
+                        oheng: result.oheng)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: result.hourPillar != null
-                      ? PillarCard(label: '시주', pillar: result.hourPillar!, oheng: result.oheng)
+                      ? PillarCard(
+                          label: '시주',
+                          pillar: result.hourPillar!,
+                          oheng: result.oheng)
                       : Container(
-                          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 16, horizontal: 12),
                           decoration: BoxDecoration(
                             color: const Color(0xFFF9FAFB),
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFFE5E7EB)),
+                            border:
+                                Border.all(color: const Color(0xFFE5E7EB)),
                           ),
                           child: const Column(
                             children: [
-                              Text('시주', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF8A4FFF))),
+                              Text('시주',
+                                  style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF8A4FFF))),
                               SizedBox(height: 10),
-                              Text('?', style: TextStyle(fontSize: 24, color: Color(0xFFD1D5DB))),
-                              Text('미상', style: TextStyle(fontSize: 11, color: Color(0xFF9CA3AF))),
+                              Text('?',
+                                  style: TextStyle(
+                                      fontSize: 24,
+                                      color: Color(0xFFD1D5DB))),
+                              Text('미상',
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: Color(0xFF9CA3AF))),
                             ],
                           ),
                         ),
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+            // 오행 차트
             OhengChart(oheng: result.oheng),
-            const SizedBox(height: 20),
-            // 전체 개요
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE5E7EB)),
+            const SizedBox(height: 16),
+
+            // 만세력 풀이
+            if (manseryeokContent.isNotEmpty)
+              _expandableSection(
+                key: 'manseryeok',
+                emoji: '📜',
+                title: '만세력 풀이',
+                content: manseryeokContent,
               ),
-              child: MarkdownBody(
-                data: result.interpretation,
-                styleSheet: MarkdownStyleSheet(
-                  h2: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF1F2937)),
-                  p: const TextStyle(fontSize: 13, height: 1.7, color: Color(0xFF374151)),
-                ),
+
+            // 올해의 운세
+            if (result.yearFortune.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _expandableSection(
+                key: 'yearFortune',
+                emoji: '🌟',
+                title: '올해의 운세',
+                content: result.yearFortune,
               ),
-            ),
-            // 분야별 카테고리 카드
-            // ignore: unnecessary_cast — 이전 캐시 데이터에서 categories가 null일 수 있음
-            for (final category in (result.categories as List<FortuneCategory>?) ?? const <FortuneCategory>[]) ...[
-              const SizedBox(height: 16),
-              _categoryCard(category),
+            ],
+
+            // 카테고리별
+            for (final category
+                in (result.categories as List<FortuneCategory>?) ??
+                    const <FortuneCategory>[]) ...[
+              const SizedBox(height: 12),
+              _expandableSection(
+                key: category.key,
+                emoji: category.emoji,
+                title: category.label,
+                content: category.content,
+              ),
             ],
             const SizedBox(height: 40),
           ],
@@ -161,35 +225,92 @@ class FortuneScreen extends StatelessWidget {
     );
   }
 
-  Widget _categoryCard(FortuneCategory category) {
+  Widget _expandableSection({
+    required String key,
+    required String emoji,
+    required String title,
+    required String content,
+  }) {
+    final isExpanded = _expanded.contains(key);
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Text(category.emoji, style: const TextStyle(fontSize: 19)),
-              const SizedBox(width: 8),
-              Text(
-                category.label,
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF1F2937)),
+          InkWell(
+            onTap: () {
+              setState(() {
+                if (isExpanded) {
+                  _expanded.remove(key);
+                } else {
+                  _expanded.add(key);
+                }
+              });
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Row(
+                children: [
+                  Text(emoji, style: const TextStyle(fontSize: 19)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1F2937),
+                      ),
+                    ),
+                  ),
+                  AnimatedRotation(
+                    turns: isExpanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: const Icon(Icons.keyboard_arrow_down,
+                        size: 22, color: Color(0xFF9CA3AF)),
+                  ),
+                ],
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          MarkdownBody(
-            data: category.content,
-            styleSheet: MarkdownStyleSheet(
-              h2: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF1F2937)),
-              p: const TextStyle(fontSize: 13, height: 1.7, color: Color(0xFF374151)),
             ),
+          ),
+          AnimatedCrossFade(
+            firstChild: const SizedBox(width: double.infinity),
+            secondChild: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              child: MarkdownBody(
+                data: content,
+                styleSheet: MarkdownStyleSheet(
+                  h1: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1F2937)),
+                  h2: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1F2937)),
+                  h3: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF374151)),
+                  p: const TextStyle(
+                      fontSize: 13,
+                      height: 1.7,
+                      color: Color(0xFF374151)),
+                  listBullet: const TextStyle(
+                      fontSize: 13, color: Color(0xFF374151)),
+                ),
+              ),
+            ),
+            crossFadeState: isExpanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 250),
           ),
         ],
       ),

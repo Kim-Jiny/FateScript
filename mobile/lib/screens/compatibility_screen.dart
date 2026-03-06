@@ -387,7 +387,10 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
             Row(
               children: [
                 GestureDetector(
-                  onTap: () => setState(() => _showNewAnalysis = false),
+                  onTap: () {
+                    setState(() => _showNewAnalysis = false);
+                    _loadHistory();
+                  },
                   child: const Icon(Icons.arrow_back_ios, size: 20),
                 ),
                 const SizedBox(width: 8),
@@ -851,7 +854,9 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
       gender: _partnerGender,
     );
 
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
     fortuneProvider.fetchCompatibility(
-        birthProvider.birthInfo!, partnerInfo, _relationship);
+        birthProvider.birthInfo!, partnerInfo, _relationship,
+        isLoggedIn: authProvider.isLoggedIn);
   }
 }

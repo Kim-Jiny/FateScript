@@ -7,6 +7,10 @@ import '../models/name_analysis_result.dart';
 import '../models/compatibility_result.dart';
 
 class ApiService {
+  static final ApiService _instance = ApiService._internal();
+  factory ApiService() => _instance;
+  ApiService._internal();
+
   static const _baseUrl = 'https://fate.jiny.shop';
 
   static const _timeout = Duration(seconds: 60);

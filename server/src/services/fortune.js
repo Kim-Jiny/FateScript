@@ -1,42 +1,17 @@
 import ai from '../config/gemini.js';
-import { SYSTEM_PROMPT, buildFortunePrompt, buildDailyPrompt, buildDiaryPrompt, buildCompatibilityPrompt } from '../prompts/system.js';
+import pool from '../config/db.js';
+import { getSystemPrompt, buildFortunePrompt, buildDailyPrompt, buildCompatibilityPrompt, buildNameAnalysisPrompt, buildNameRecommendPrompt } from '../prompts/system.js';
 import { getSajuInfo, getTodayIljin } from './saju.js';
 
 const MODEL = 'gemini-2.5-flash';
 
-// ── 응답 캐시 ──────────────────────────────────────
-const cache = new Map();
-
-function getCached(key) {
-  const entry = cache.get(key);
-  if (!entry) return null;
-  if (Date.now() > entry.expiresAt) {
-    cache.delete(key);
-    return null;
-  }
-  return entry.value;
-}
-
-function setCache(key, value, ttlMs) {
-  cache.set(key, { value, expiresAt: Date.now() + ttlMs });
-}
-
-function msUntilMidnight() {
-  const now = new Date();
-  const midnight = new Date(now);
-  midnight.setHours(24, 0, 0, 0);
-  return midnight - now;
-}
-
-const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
-
 // ── Gemini 호출 ────────────────────────────────────
-async function askGemini(userPrompt) {
+async function askGemini(userPrompt, systemPrompt) {
   const response = await ai.models.generateContent({
     model: MODEL,
     contents: userPrompt,
     config: {
-      systemInstruction: SYSTEM_PROMPT,
+      systemInstruction: systemPrompt,
       maxOutputTokens: 8192,
       temperature: 0.8,
     },
@@ -81,16 +56,25 @@ function parseFortuneResponse(text) {
 }
 
 /**
- * 사주 해석 (캐시: 7일)
+ * 사주 해석 (DB 캐시: 같은 해 동안 유지)
  */
 export async function interpretFortune({ year, month, day, hour, minute, gender }) {
-  const cacheKey = `fortune:${year}-${month}-${day}-${hour}-${minute}-${gender}`;
-  const cached = getCached(cacheKey);
-  if (cached) return cached;
+  const currentYear = new Date().getFullYear();
+  const cacheKey = `fortune:${year}-${month}-${day}-${hour}-${minute}-${gender}:${currentYear}`;
+
+  // DB 캐시 조회
+  const { rows } = await pool.query(
+    'SELECT result FROM fortune_cache WHERE cache_key = $1',
+    [cacheKey],
+  );
+  if (rows.length > 0) {
+    console.log(`[cache hit] fortune ${cacheKey}`);
+    return rows[0].result;
+  }
 
   const sajuInfo = getSajuInfo(year, month, day, hour, minute);
   const prompt = buildFortunePrompt(sajuInfo, gender);
-  const rawText = await askGemini(prompt);
+  const rawText = await askGemini(prompt, getSystemPrompt('year'));
   const { interpretation, categories } = parseFortuneResponse(rawText);
 
   const result = {
@@ -106,22 +90,37 @@ export async function interpretFortune({ year, month, day, hour, minute, gender 
     categories,
   };
 
-  setCache(cacheKey, result, SEVEN_DAYS);
+  // DB 저장
+  await pool.query(
+    'INSERT INTO fortune_cache (cache_key, result, year) VALUES ($1, $2, $3) ON CONFLICT (cache_key) DO NOTHING',
+    [cacheKey, JSON.stringify(result), currentYear],
+  );
+  console.log(`[cache set] fortune ${cacheKey}`);
+
   return result;
 }
 
 /**
- * 오늘의 운세 (캐시: 자정까지)
+ * 오늘의 운세 (DB 캐시: 같은 날 동안 유지)
  */
 export async function getDailyFortune({ year, month, day, hour, minute, gender }) {
-  const cacheKey = `daily:${year}-${month}-${day}-${hour}-${minute}-${gender}`;
-  const cached = getCached(cacheKey);
-  if (cached) return cached;
+  const todayDate = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const cacheKey = `daily:${year}-${month}-${day}-${hour}-${minute}-${gender}:${todayDate}`;
+
+  // DB 캐시 조회
+  const { rows } = await pool.query(
+    'SELECT result FROM daily_cache WHERE cache_key = $1',
+    [cacheKey],
+  );
+  if (rows.length > 0) {
+    console.log(`[cache hit] daily ${cacheKey}`);
+    return rows[0].result;
+  }
 
   const sajuInfo = getSajuInfo(year, month, day, hour, minute);
   const iljin = getTodayIljin();
   const prompt = buildDailyPrompt(sajuInfo, iljin, gender);
-  const reading = await askGemini(prompt);
+  const reading = await askGemini(prompt, getSystemPrompt('date'));
 
   const result = {
     date: iljin.date,
@@ -129,38 +128,191 @@ export async function getDailyFortune({ year, month, day, hour, minute, gender }
     reading,
   };
 
-  setCache(cacheKey, result, msUntilMidnight());
+  // DB 저장
+  await pool.query(
+    'INSERT INTO daily_cache (cache_key, result, date) VALUES ($1, $2, $3) ON CONFLICT (cache_key) DO NOTHING',
+    [cacheKey, JSON.stringify(result), todayDate],
+  );
+  console.log(`[cache set] daily ${cacheKey}`);
+
   return result;
 }
 
 /**
- * 일기 상담 (캐시 없음 — 매번 다른 입력)
+ * 성명학 이름 분석 (DB 캐시)
  */
-export async function consultDiary({ year, month, day, hour, minute, gender, diaryText }) {
-  const sajuInfo = getSajuInfo(year, month, day, hour, minute);
-  const prompt = buildDiaryPrompt(sajuInfo, diaryText, gender);
-  const consultation = await askGemini(prompt);
+export async function analyzeNameFortune({ year, month, day, hour, minute, gender, name }) {
+  const cacheKey = `name-analysis:${name}:${year}-${month}-${day}-${hour}-${minute}-${gender}`;
 
-  return { consultation };
+  const { rows } = await pool.query(
+    'SELECT result FROM name_analysis_cache WHERE cache_key = $1',
+    [cacheKey],
+  );
+  if (rows.length > 0) {
+    console.log(`[cache hit] name-analysis ${cacheKey}`);
+    return rows[0].result;
+  }
+
+  const sajuInfo = getSajuInfo(year, month, day, hour, minute);
+  const prompt = buildNameAnalysisPrompt(sajuInfo, name, gender);
+  const rawText = await askGemini(prompt, getSystemPrompt('year'));
+
+  let result;
+  try {
+    const cleaned = rawText.replace(/^```(?:json)?\s*\n?/m, '').replace(/\n?```\s*$/m, '').trim();
+    result = JSON.parse(cleaned);
+  } catch {
+    result = { raw: rawText };
+  }
+
+  await pool.query(
+    'INSERT INTO name_analysis_cache (cache_key, result) VALUES ($1, $2) ON CONFLICT (cache_key) DO NOTHING',
+    [cacheKey, JSON.stringify(result)],
+  );
+  console.log(`[cache set] name-analysis ${cacheKey}`);
+
+  return result;
 }
 
 /**
- * 궁합 분석 (캐시: 7일)
+ * 성명학 이름 추천 (DB 캐시)
+ */
+export async function recommendNames({ year, month, day, hour, minute, gender, lastName }) {
+  const cacheKey = `name-recommend:${lastName}:${year}-${month}-${day}-${hour}-${minute}-${gender}`;
+
+  const { rows } = await pool.query(
+    'SELECT result FROM name_analysis_cache WHERE cache_key = $1',
+    [cacheKey],
+  );
+  if (rows.length > 0) {
+    console.log(`[cache hit] name-recommend ${cacheKey}`);
+    return rows[0].result;
+  }
+
+  const sajuInfo = getSajuInfo(year, month, day, hour, minute);
+  const prompt = buildNameRecommendPrompt(sajuInfo, lastName, gender);
+  const rawText = await askGemini(prompt, getSystemPrompt('year'));
+
+  let result;
+  try {
+    const cleaned = rawText.replace(/^```(?:json)?\s*\n?/m, '').replace(/\n?```\s*$/m, '').trim();
+    result = JSON.parse(cleaned);
+  } catch {
+    result = { raw: rawText };
+  }
+
+  await pool.query(
+    'INSERT INTO name_analysis_cache (cache_key, result) VALUES ($1, $2) ON CONFLICT (cache_key) DO NOTHING',
+    [cacheKey, JSON.stringify(result)],
+  );
+  console.log(`[cache set] name-recommend ${cacheKey}`);
+
+  return result;
+}
+
+/**
+ * 궁합 분석 (DB 캐시: 같은 해 동안 유지)
  */
 export async function getCompatibility({ my, partner, relationship }) {
+  const currentYear = new Date().getFullYear();
   const cacheKey = `compat:${my.year}-${my.month}-${my.day}-${my.hour}-${my.minute}-${my.gender}`
     + `:${partner.year}-${partner.month}-${partner.day}-${partner.hour}-${partner.minute}-${partner.gender}`
-    + `:${relationship}`;
-  const cached = getCached(cacheKey);
-  if (cached) return cached;
+    + `:${relationship}:${currentYear}`;
+
+  // DB 캐시 조회
+  const { rows } = await pool.query(
+    'SELECT result FROM compatibility_cache WHERE cache_key = $1',
+    [cacheKey],
+  );
+  if (rows.length > 0) {
+    console.log(`[cache hit] compatibility ${cacheKey}`);
+    return rows[0].result;
+  }
 
   const mySaju = getSajuInfo(my.year, my.month, my.day, my.hour, my.minute);
   const partnerSaju = getSajuInfo(partner.year, partner.month, partner.day, partner.hour, partner.minute);
   const prompt = buildCompatibilityPrompt(mySaju, partnerSaju, my.gender, partner.gender, relationship);
-  const consultation = await askGemini(prompt);
+  const consultation = await askGemini(prompt, getSystemPrompt('date'));
 
   const result = { consultation };
 
-  setCache(cacheKey, result, SEVEN_DAYS);
+  // DB 저장
+  await pool.query(
+    'INSERT INTO compatibility_cache (cache_key, result, year) VALUES ($1, $2, $3) ON CONFLICT (cache_key) DO NOTHING',
+    [cacheKey, JSON.stringify(result), currentYear],
+  );
+  console.log(`[cache set] compatibility ${cacheKey}`);
+
   return result;
+}
+
+// ── 궁합 히스토리 ────────────────────────────────────
+
+/**
+ * 궁합 히스토리 저장
+ */
+export async function saveCompatibilityHistory({
+  uid, myBirthDate, myBirthTime, myGender,
+  partnerBirthDate, partnerBirthTime, partnerGender,
+  relationship, result,
+}) {
+  const currentYear = new Date().getFullYear();
+  const cacheKey = `compat:${myBirthDate}-${myBirthTime}-${myGender}`
+    + `:${partnerBirthDate}-${partnerBirthTime}-${partnerGender}`
+    + `:${relationship}:${currentYear}`;
+
+  // 같은 캐시키의 히스토리가 이미 있으면 저장하지 않음
+  const { rows } = await pool.query(
+    'SELECT id FROM compatibility_history WHERE uid = $1 AND cache_key = $2',
+    [uid, cacheKey],
+  );
+  if (rows.length > 0) return;
+
+  await pool.query(
+    `INSERT INTO compatibility_history
+      (uid, cache_key, my_birth_date, my_birth_time, my_gender,
+       partner_birth_date, partner_birth_time, partner_gender,
+       relationship, result)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+    [uid, cacheKey, myBirthDate, myBirthTime ?? 'unknown', myGender,
+     partnerBirthDate, partnerBirthTime ?? 'unknown', partnerGender,
+     relationship, JSON.stringify(result)],
+  );
+}
+
+/**
+ * 궁합 히스토리 조회
+ */
+export async function getCompatibilityHistory(uid) {
+  const { rows } = await pool.query(
+    `SELECT id, my_birth_date, my_birth_time, my_gender,
+            partner_birth_date, partner_birth_time, partner_gender,
+            relationship, result, created_at
+     FROM compatibility_history
+     WHERE uid = $1
+     ORDER BY created_at DESC`,
+    [uid],
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    myBirthDate: r.my_birth_date,
+    myBirthTime: r.my_birth_time,
+    myGender: r.my_gender,
+    partnerBirthDate: r.partner_birth_date,
+    partnerBirthTime: r.partner_birth_time,
+    partnerGender: r.partner_gender,
+    relationship: r.relationship,
+    result: r.result,
+    createdAt: r.created_at,
+  }));
+}
+
+/**
+ * 궁합 히스토리 삭제
+ */
+export async function deleteCompatibilityHistory(uid, id) {
+  await pool.query(
+    'DELETE FROM compatibility_history WHERE uid = $1 AND id = $2',
+    [uid, id],
+  );
 }

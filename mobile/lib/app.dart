@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'screens/home_screen.dart';
 import 'screens/daily_screen.dart';
-import 'screens/diary_screen.dart';
+import 'screens/name_screen.dart';
 import 'screens/fortune_screen.dart';
 import 'screens/compatibility_screen.dart';
 import 'widgets/bottom_nav.dart';
@@ -35,17 +35,17 @@ class UnmyeongDiaryApp extends StatelessWidget {
         ),
         textTheme: const TextTheme(
           headlineMedium: TextStyle(
-            fontSize: 32,
+            fontSize: 27,
             fontWeight: FontWeight.w700,
             color: accent,
           ),
           titleMedium: TextStyle(
-            fontSize: 18,
+            fontSize: 15,
             fontWeight: FontWeight.w600,
             color: accent,
           ),
           bodyLarge: TextStyle(
-            fontSize: 16,
+            fontSize: 14,
             height: 1.6,
             color: Color(0xFF4B5563),
           ),
@@ -69,7 +69,7 @@ class _MainShellState extends State<MainShell> {
   static const _screens = [
     HomeScreen(),
     DailyScreen(),
-    DiaryScreen(),
+    NameScreen(),
     FortuneScreen(),
     CompatibilityScreen(),
   ];

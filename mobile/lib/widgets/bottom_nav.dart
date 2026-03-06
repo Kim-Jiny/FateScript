@@ -29,9 +29,9 @@ class AppBottomNav extends StatelessWidget {
           label: '오늘의 운세',
         ),
         NavigationDestination(
-          icon: Icon(Icons.edit_note_outlined),
-          selectedIcon: Icon(Icons.edit_note, color: Color(0xFF8A4FFF)),
-          label: '일기',
+          icon: Icon(Icons.text_fields_outlined),
+          selectedIcon: Icon(Icons.text_fields, color: Color(0xFF8A4FFF)),
+          label: '성명학',
         ),
         NavigationDestination(
           icon: Icon(Icons.person_outline),

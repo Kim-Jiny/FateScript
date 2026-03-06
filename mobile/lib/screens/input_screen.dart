@@ -102,7 +102,7 @@ class _InputScreenState extends State<InputScreen> {
   Widget _sectionTitle(String title) => Text(
         title,
         style: const TextStyle(
-          fontSize: 16,
+          fontSize: 14,
           fontWeight: FontWeight.w700,
           color: Color(0xFF1F2937),
         ),
@@ -124,7 +124,7 @@ class _InputScreenState extends State<InputScreen> {
             const SizedBox(width: 12),
             Text(
               DateFormat('yyyy년 M월 d일').format(_selectedDate),
-              style: const TextStyle(fontSize: 16, color: Color(0xFF1F2937)),
+              style: const TextStyle(fontSize: 14, color: Color(0xFF1F2937)),
             ),
           ],
         ),
@@ -202,7 +202,7 @@ class _InputScreenState extends State<InputScreen> {
           child: Text(
             label,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 11,
               fontWeight: FontWeight.w600,
               color: selected ? Colors.white : const Color(0xFF4B5563),
             ),
@@ -235,7 +235,7 @@ class _InputScreenState extends State<InputScreen> {
               label,
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 10,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 color: selected ? const Color(0xFF8A4FFF) : const Color(0xFF4B5563),
               ),
@@ -262,7 +262,7 @@ class _InputScreenState extends State<InputScreen> {
             const SizedBox(width: 12),
             Text(
               _exactTime.format(context),
-              style: const TextStyle(fontSize: 16, color: Color(0xFF1F2937)),
+              style: const TextStyle(fontSize: 14, color: Color(0xFF1F2937)),
             ),
           ],
         ),
@@ -297,7 +297,7 @@ class _InputScreenState extends State<InputScreen> {
                 child: Text(
                   '남성 (건명)',
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: _gender == 'male' ? Colors.white : const Color(0xFF4B5563),
                   ),
@@ -323,7 +323,7 @@ class _InputScreenState extends State<InputScreen> {
                 child: Text(
                   '여성 (곤명)',
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: _gender == 'female' ? Colors.white : const Color(0xFF4B5563),
                   ),
@@ -346,7 +346,7 @@ class _InputScreenState extends State<InputScreen> {
           backgroundColor: const Color(0xFF8A4FFF),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
-        child: const Text('사주 분석 시작', style: TextStyle(fontSize: 16)),
+        child: const Text('사주 분석 시작', style: TextStyle(fontSize: 14)),
       ),
     );
   }

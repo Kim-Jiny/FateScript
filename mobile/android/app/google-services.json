@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "149916884523",
+    "project_id": "fate-script",
+    "storage_bucket": "fate-script.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:149916884523:android:83d99187a409c5bd52946e",
+        "android_client_info": {
+          "package_name": "com.unmyeongilgi.unmyeongilgi"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "149916884523-sth8iu7lq691a48hdpj8cm5og5hp3gs2.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.unmyeongilgi.unmyeongilgi",
+            "certificate_hash": "92c790774fb6743a6d5b1721992bb4f57c790c01"
+          }
+        },
+        {
+          "client_id": "149916884523-mnsin86d8n2im75bh3lgi14kapos9ct3.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCnyOrt9smN_Tmn38KsBWjHo5C2iBmSuNI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "149916884523-mnsin86d8n2im75bh3lgi14kapos9ct3.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "149916884523-o4io4vcdu4pf5m0cp6u0q1ueuu294je0.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.unmyeongilgi.unmyeongilgi"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

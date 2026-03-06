@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../providers/birth_info_provider.dart';
 import 'input_screen.dart';
+import 'login_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -10,6 +12,7 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final birthProvider = context.watch<BirthInfoProvider>();
+    final authProvider = context.watch<AuthProvider>();
 
     return Scaffold(
       body: SafeArea(
@@ -18,20 +21,27 @@ class HomeScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: const Text(
-                  'AI 사주 다이어리',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF8A4FFF),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: const Text(
+                      'AI 사주 다이어리',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF8A4FFF),
+                      ),
+                    ),
                   ),
-                ),
+                  const Spacer(),
+                  _authButton(context, authProvider),
+                ],
               ),
               const SizedBox(height: 28),
               Text('운명일기', style: theme.textTheme.headlineMedium),
@@ -60,7 +70,7 @@ class HomeScreen extends StatelessWidget {
                         '오늘의 흐름',
                         style: TextStyle(
                           color: Colors.white70,
-                          fontSize: 15,
+                          fontSize: 13,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -70,7 +80,7 @@ class HomeScreen extends StatelessWidget {
                           '사주를 입력하면\n운명선생이 오늘의\n흐름을 알려드립니다.',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 26,
+                            fontSize: 22,
                             fontWeight: FontWeight.w700,
                             height: 1.3,
                           ),
@@ -81,18 +91,21 @@ class HomeScreen extends StatelessWidget {
                       const Spacer(),
                       if (birthProvider.hasBirthInfo)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 10),
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.check_circle, color: Colors.greenAccent, size: 18),
+                              const Icon(Icons.check_circle,
+                                  color: Colors.greenAccent, size: 16),
                               const SizedBox(width: 8),
                               Text(
-                                '사주 정보가 저장되어 있습니다 (${birthProvider.birthInfo!.birthDate})',
-                                style: const TextStyle(color: Colors.white70, fontSize: 13),
+                                '${birthProvider.birthInfo!.birthDate.replaceAll('-', '.')}${birthProvider.birthInfo!.hasTime ? ' ${birthProvider.birthInfo!.birthTime}' : ''}',
+                                style: const TextStyle(
+                                    color: Colors.white70, fontSize: 11),
                               ),
                             ],
                           ),
@@ -100,7 +113,10 @@ class HomeScreen extends StatelessWidget {
                       else
                         const Text(
                           '아래 버튼으로 사주 정보를 입력해 주세요.',
-                          style: TextStyle(color: Colors.white70, fontSize: 15, height: 1.6),
+                          style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                              height: 1.6),
                         ),
                     ],
                   ),
@@ -114,11 +130,117 @@ class HomeScreen extends StatelessWidget {
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 18),
                     backgroundColor: const Color(0xFF8A4FFF),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
                   ),
                   child: Text(
                     birthProvider.hasBirthInfo ? '사주 정보 수정' : '사주 입력 시작',
                   ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _authButton(BuildContext context, AuthProvider authProvider) {
+    if (authProvider.isLoggedIn) {
+      return GestureDetector(
+        onTap: () => _showProfileMenu(context, authProvider),
+        child: CircleAvatar(
+          radius: 18,
+          backgroundColor: const Color(0xFF8A4FFF).withValues(alpha: 0.15),
+          backgroundImage: authProvider.photoUrl != null
+              ? NetworkImage(authProvider.photoUrl!)
+              : null,
+          child: authProvider.photoUrl == null
+              ? const Icon(Icons.person, size: 20, color: Color(0xFF8A4FFF))
+              : null,
+        ),
+      );
+    }
+
+    return GestureDetector(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF8A4FFF).withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.login, size: 14, color: Color(0xFF8A4FFF)),
+            SizedBox(width: 6),
+            Text(
+              '로그인',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF8A4FFF),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showProfileMenu(BuildContext context, AuthProvider authProvider) {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircleAvatar(
+                radius: 30,
+                backgroundColor:
+                    const Color(0xFF8A4FFF).withValues(alpha: 0.15),
+                backgroundImage: authProvider.photoUrl != null
+                    ? NetworkImage(authProvider.photoUrl!)
+                    : null,
+                child: authProvider.photoUrl == null
+                    ? const Icon(Icons.person,
+                        size: 30, color: Color(0xFF8A4FFF))
+                    : null,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                authProvider.displayName ?? '사용자',
+                style: const TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.w700),
+              ),
+              if (authProvider.email != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  authProvider.email!,
+                  style: const TextStyle(
+                      fontSize: 12, color: Color(0xFF6B7280)),
+                ),
+              ],
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () {
+                    authProvider.signOut();
+                    Navigator.of(context).pop();
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('로그아웃'),
                 ),
               ),
             ],

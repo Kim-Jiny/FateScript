@@ -43,7 +43,7 @@ class DailyScreen extends StatelessWidget {
           children: [
             const Icon(Icons.auto_awesome_outlined, size: 64, color: Color(0xFFD1D5DB)),
             const SizedBox(height: 16),
-            const Text('사주 정보를 먼저 입력해 주세요.', style: TextStyle(fontSize: 16, color: Color(0xFF6B7280))),
+            const Text('사주 정보를 먼저 입력해 주세요.', style: TextStyle(fontSize: 14, color: Color(0xFF6B7280))),
             const SizedBox(height: 20),
             FilledButton(
               onPressed: () => Navigator.of(context).push(
@@ -65,12 +65,12 @@ class DailyScreen extends StatelessWidget {
         children: [
           const Icon(Icons.wb_sunny_outlined, size: 64, color: Color(0xFFF59E0B)),
           const SizedBox(height: 16),
-          const Text('오늘의 운세', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+          const Text('오늘의 운세', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
           const Text('사주와 오늘의 일진으로 운세를 봅니다.', style: TextStyle(color: Color(0xFF6B7280))),
           if (fortuneProvider.error != null) ...[
             const SizedBox(height: 12),
-            Text(fortuneProvider.error!, style: const TextStyle(color: Colors.red, fontSize: 13)),
+            Text(fortuneProvider.error!, style: const TextStyle(color: Colors.red, fontSize: 11)),
           ],
           const SizedBox(height: 24),
           FilledButton(
@@ -95,7 +95,7 @@ class DailyScreen extends StatelessWidget {
             const SizedBox(height: 8),
             Row(
               children: [
-                const Text('오늘의 운세', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+                const Text('오늘의 운세', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
                 const Spacer(),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -105,7 +105,7 @@ class DailyScreen extends StatelessWidget {
                   ),
                   child: Text(
                     daily.date,
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF8A4FFF)),
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF8A4FFF)),
                   ),
                 ),
               ],
@@ -121,11 +121,11 @@ class DailyScreen extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Text('오늘의 일진', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                  const Text('오늘의 일진', style: TextStyle(color: Colors.white70, fontSize: 12)),
                   const Spacer(),
                   Text(
                     '${daily.iljinHanja} (${daily.iljinHangul})',
-                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700),
+                    style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700),
                   ),
                 ],
               ),
@@ -142,8 +142,8 @@ class DailyScreen extends StatelessWidget {
               child: MarkdownBody(
                 data: daily.reading,
                 styleSheet: MarkdownStyleSheet(
-                  h2: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF1F2937)),
-                  p: const TextStyle(fontSize: 15, height: 1.7, color: Color(0xFF374151)),
+                  h2: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF1F2937)),
+                  p: const TextStyle(fontSize: 13, height: 1.7, color: Color(0xFF374151)),
                 ),
               ),
             ),

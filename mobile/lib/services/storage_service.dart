@@ -3,7 +3,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/birth_info.dart';
 import '../models/compatibility_result.dart';
 import '../models/daily_fortune.dart';
-import '../models/diary_result.dart';
 import '../models/fortune_result.dart';
 
 class StorageService {
@@ -16,7 +15,7 @@ class StorageService {
   static const _keyDailyFortuneSavedDate = 'daily_fortune_saved_date';
   static const _keyCompatibility = 'compatibility_result';
   static const _keyCompatibilitySavedYear = 'compatibility_saved_year';
-  static const _keyDiaryHistory = 'diary_history';
+  static const _keyCompatibilityHistory = 'compatibility_history';
 
   Future<void> saveBirthInfo(BirthInfo info) async {
     final prefs = await SharedPreferences.getInstance();
@@ -141,30 +140,33 @@ class StorageService {
     await prefs.remove(_keyCompatibilitySavedYear);
   }
 
-  Future<void> saveDiaryEntry(DiaryResult entry) async {
+  // ── 궁합 히스토리 (로컬) ──
+
+  Future<void> saveCompatibilityHistory(
+      List<Map<String, dynamic>> history) async {
     final prefs = await SharedPreferences.getInstance();
-    final history = await loadDiaryHistory();
-    history.insert(0, entry);
-    final jsonList = history.map((e) => e.toJson()).toList();
-    await prefs.setString(_keyDiaryHistory, jsonEncode(jsonList));
+    await prefs.setString(_keyCompatibilityHistory, jsonEncode(history));
   }
 
-  Future<List<DiaryResult>> loadDiaryHistory() async {
+  Future<List<Map<String, dynamic>>> loadCompatibilityHistory() async {
     final prefs = await SharedPreferences.getInstance();
-    final json = prefs.getString(_keyDiaryHistory);
+    final json = prefs.getString(_keyCompatibilityHistory);
     if (json == null) return [];
     final list = jsonDecode(json) as List;
-    return list
-        .map((e) => DiaryResult.fromJson(e as Map<String, dynamic>))
-        .toList();
+    return list.map((e) => e as Map<String, dynamic>).toList();
   }
 
-  Future<void> deleteDiaryEntry(int id) async {
-    final prefs = await SharedPreferences.getInstance();
-    final history = await loadDiaryHistory();
-    history.removeWhere((e) => e.id == id);
-    final jsonList = history.map((e) => e.toJson()).toList();
-    await prefs.setString(_keyDiaryHistory, jsonEncode(jsonList));
+  Future<void> addCompatibilityHistoryEntry(
+      Map<String, dynamic> entry) async {
+    final history = await loadCompatibilityHistory();
+    history.insert(0, entry);
+    await saveCompatibilityHistory(history);
+  }
+
+  Future<void> deleteCompatibilityHistoryEntry(int id) async {
+    final history = await loadCompatibilityHistory();
+    history.removeWhere((e) => e['id'] == id);
+    await saveCompatibilityHistory(history);
   }
 
   Future<void> clear() async {

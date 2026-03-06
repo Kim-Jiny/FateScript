@@ -1,10 +1,19 @@
-const today = new Date();
-const currentDateStr = `${today.getFullYear()}년 ${today.getMonth() + 1}월 ${today.getDate()}일`;
+/**
+ * System prompt 생성
+ * @param {'year'|'date'} mode - 'year': 연도만 포함 (fortune/name-analysis), 'date': 오늘 날짜 포함 (daily/compatibility)
+ */
+export function getSystemPrompt(mode = 'date') {
+  const today = new Date();
+  const year = today.getFullYear();
 
-export const SYSTEM_PROMPT = `당신은 '운명선생'입니다. 30년 경력의 사주명리학 전문가이자 따뜻한 인생 상담사입니다.
+  const dateSection = mode === 'year'
+    ? `올해는 ${year}년입니다. 운세 분석 시 반드시 이 연도를 기준으로 하세요.`
+    : `오늘은 ${year}년 ${today.getMonth() + 1}월 ${today.getDate()}일입니다. 올해는 ${year}년입니다. 운세 분석 시 반드시 이 날짜를 기준으로 하세요.`;
+
+  return `당신은 '운명선생'입니다. 30년 경력의 사주명리학 전문가이자 따뜻한 인생 상담사입니다.
 
 ## 현재 날짜
-오늘은 ${currentDateStr}입니다. 올해는 ${today.getFullYear()}년입니다. 운세 분석 시 반드시 이 날짜를 기준으로 하세요.
+${dateSection}
 
 ## 성격과 말투
 - 따뜻하고 격려하는 존댓말을 사용합니다
@@ -17,6 +26,7 @@ export const SYSTEM_PROMPT = `당신은 '운명선생'입니다. 30년 경력의
 - 사주 해석은 전통 명리학에 기반하되, 현대적 맥락으로 풀어냅니다
 - 건강, 투자 등 민감한 주제는 단정짓지 않고 참고용임을 밝힙니다
 - 응답은 한국어로만 합니다`;
+}
 
 /**
  * 사주 해석 프롬프트
@@ -24,6 +34,7 @@ export const SYSTEM_PROMPT = `당신은 '운명선생'입니다. 30년 경력의
 export function buildFortunePrompt(sajuInfo, gender) {
   const { saju, lunar, oheng } = sajuInfo;
   const genderText = gender === 'male' ? '남성(건명)' : '여성(곤명)';
+  const currentYear = new Date().getFullYear();
 
   return `## 사주 분석 요청
 
@@ -53,7 +64,7 @@ ${oheng.summary}
     "career": "직업과 적성 - 어울리는 분야, 재능, 진로 조언 등",
     "health": "건강운 - 오행 기반 건강 취약점, 건강 관리 조언 등",
     "relationships": "대인관계운 - 사주로 본 대인관계 특성, 소통 스타일 등",
-    "yearFortune": "올해의 운세 - ${today.getFullYear()}년 대운/세운 흐름, 올해 주의점과 기회",
+    "yearFortune": "올해의 운세 - ${currentYear}년 대운/세운 흐름, 올해 주의점과 기회",
     "advice": "운명선생의 한마디 - 따뜻한 격려와 인생 조언"
   }
 }
@@ -92,31 +103,94 @@ ${oheng.summary}
 }
 
 /**
- * 일기 상담 프롬프트
+ * 성명학 이름 분석 프롬프트
  */
-export function buildDiaryPrompt(sajuInfo, diaryText, gender) {
+export function buildNameAnalysisPrompt(sajuInfo, name, gender) {
   const { saju, oheng } = sajuInfo;
   const genderText = gender === 'male' ? '남성' : '여성';
 
-  return `## 일기 상담 요청
+  return `## 성명학 이름 분석 요청
 
+**이름**: ${name}
 **성별**: ${genderText}
 
-### 내 사주 요약
-일주: ${saju.dayPillar.hangul} (${saju.dayPillar.hanja})
-주된 오행: ${oheng.dominant} (${oheng.dominantInfo.emoji})
+### 사주 정보
+| 년주 | 월주 | 일주 | 시주 |
+|------|------|------|------|
+| ${saju.yearPillar.hangul} | ${saju.monthPillar.hangul} | ${saju.dayPillar.hangul} | ${saju.hourPillar?.hangul ?? '미상'} |
 
-### 오늘의 일기
-${diaryText}
+### 오행 분포
+${oheng.summary}
+- 강한 오행: ${oheng.dominant} (${oheng.dominantInfo.emoji})
+- 약한 오행: ${oheng.weak} (${oheng.weakInfo.emoji})
 
-위 일기 내용을 사주명리학 관점에서 상담해 주세요:
-1. **일기 속 감정 읽기** - 글에서 느껴지는 감정을 공감하며 읽어주세요
-2. **사주 관점의 해석** - 이 분의 사주 특성과 오늘 겪은 일의 연결고리
-3. **오행 에너지 조언** - 현재 필요한 오행 에너지와 보충 방법
-4. **운명선생의 따뜻한 한마디** - 격려와 응원의 메시지
+이름의 한자 획수, 오행, 음양을 분석하고 사주와의 궁합을 평가해 주세요.
+반드시 아래 JSON 형식으로만 응답하고 다른 텍스트는 포함하지 마세요.
 
-공감과 위로를 우선으로 하되, 사주 전문가로서의 통찰도 함께 전해주세요.
-답변은 대화하듯 따뜻하게 해주세요.`;
+\`\`\`json
+{
+  "characters": [
+    {
+      "char": "글자",
+      "hanja": "한자 (대표적 한자, 없으면 null)",
+      "strokes": 획수,
+      "oheng": "오행",
+      "yinYang": "음/양"
+    }
+  ],
+  "ohengBalance": "이름의 오행 균형 분석 (마크다운)",
+  "yinYangBalance": "이름의 음양 균형 분석 (마크다운)",
+  "sajuCompatibility": "사주와 이름의 궁합 분석 (마크다운)",
+  "strengths": ["강점1", "강점2", "강점3"],
+  "cautions": ["주의점1", "주의점2"],
+  "overallScore": 85,
+  "advice": "운명선생의 종합 조언 (마크다운)"
+}
+\`\`\``;
+}
+
+/**
+ * 성명학 이름 추천 프롬프트
+ */
+export function buildNameRecommendPrompt(sajuInfo, lastName, gender) {
+  const { saju, oheng } = sajuInfo;
+  const genderText = gender === 'male' ? '남성' : '여성';
+
+  return `## 성명학 이름 추천 요청
+
+**성(姓)**: ${lastName}
+**성별**: ${genderText}
+
+### 사주 정보
+| 년주 | 월주 | 일주 | 시주 |
+|------|------|------|------|
+| ${saju.yearPillar.hangul} | ${saju.monthPillar.hangul} | ${saju.dayPillar.hangul} | ${saju.hourPillar?.hangul ?? '미상'} |
+
+### 오행 분포
+${oheng.summary}
+- 강한 오행: ${oheng.dominant} (${oheng.dominantInfo.emoji})
+- 약한 오행: ${oheng.weak} (${oheng.weakInfo.emoji})
+
+이 사주에 맞는 이름 5개를 추천해 주세요.
+반드시 아래 JSON 형식으로만 응답하고 다른 텍스트는 포함하지 마세요.
+
+\`\`\`json
+{
+  "recommendations": [
+    {
+      "name": "추천이름 (한글)",
+      "hanja": "추천이름 (한자)",
+      "meaning": "이름의 뜻",
+      "strokes": [획수1, 획수2],
+      "ohengAnalysis": "이름의 오행 분석",
+      "sajuFit": "사주와의 적합성 설명",
+      "score": 92
+    }
+  ],
+  "selectionCriteria": "이름 선정 기준 설명 (마크다운)",
+  "advice": "운명선생의 종합 조언 (마크다운)"
+}
+\`\`\``;
 }
 
 /**

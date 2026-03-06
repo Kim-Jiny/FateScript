@@ -40,7 +40,7 @@ class OhengChart extends StatelessWidget {
           const Text(
             '오행 분포',
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 14,
               fontWeight: FontWeight.w700,
               color: Color(0xFF1F2937),
             ),
@@ -58,7 +58,7 @@ class OhengChart extends StatelessWidget {
                     child: Text(
                       '${e.key} ${_ohengLabels[e.key] ?? ''}',
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 10,
                         fontWeight: FontWeight.w600,
                         color: color,
                       ),
@@ -83,7 +83,7 @@ class OhengChart extends StatelessWidget {
                       '${e.value}',
                       textAlign: TextAlign.right,
                       style: const TextStyle(
-                        fontSize: 13,
+                        fontSize: 11,
                         fontWeight: FontWeight.w600,
                         color: Color(0xFF4B5563),
                       ),

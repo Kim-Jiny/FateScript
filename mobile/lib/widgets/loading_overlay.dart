@@ -31,7 +31,7 @@ class LoadingOverlay extends StatelessWidget {
                 message,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                  fontSize: 15,
+                  fontSize: 13,
                   color: Color(0xFF4B5563),
                   height: 1.5,
                 ),

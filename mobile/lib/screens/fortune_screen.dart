@@ -46,7 +46,7 @@ class FortuneScreen extends StatelessWidget {
           children: [
             const Icon(Icons.person_outline, size: 64, color: Color(0xFFD1D5DB)),
             const SizedBox(height: 16),
-            const Text('사주 정보를 먼저 입력해 주세요.', style: TextStyle(fontSize: 16, color: Color(0xFF6B7280))),
+            const Text('사주 정보를 먼저 입력해 주세요.', style: TextStyle(fontSize: 14, color: Color(0xFF6B7280))),
             const SizedBox(height: 20),
             FilledButton(
               onPressed: () => Navigator.of(context).push(
@@ -68,12 +68,12 @@ class FortuneScreen extends StatelessWidget {
         children: [
           const Icon(Icons.auto_awesome, size: 64, color: Color(0xFF8A4FFF)),
           const SizedBox(height: 16),
-          const Text('내 사주 해석', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+          const Text('내 사주 해석', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
           const Text('전체 사주팔자를 AI가 분석합니다.', style: TextStyle(color: Color(0xFF6B7280))),
           if (fortuneProvider.error != null) ...[
             const SizedBox(height: 12),
-            Text(fortuneProvider.error!, style: const TextStyle(color: Colors.red, fontSize: 13)),
+            Text(fortuneProvider.error!, style: const TextStyle(color: Colors.red, fontSize: 11)),
           ],
           const SizedBox(height: 24),
           FilledButton(
@@ -96,7 +96,7 @@ class FortuneScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 8),
-            const Text('내 사주팔자', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+            const Text('내 사주팔자', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -118,10 +118,10 @@ class FortuneScreen extends StatelessWidget {
                           ),
                           child: const Column(
                             children: [
-                              Text('시주', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF8A4FFF))),
+                              Text('시주', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF8A4FFF))),
                               SizedBox(height: 10),
-                              Text('?', style: TextStyle(fontSize: 28, color: Color(0xFFD1D5DB))),
-                              Text('미상', style: TextStyle(fontSize: 13, color: Color(0xFF9CA3AF))),
+                              Text('?', style: TextStyle(fontSize: 24, color: Color(0xFFD1D5DB))),
+                              Text('미상', style: TextStyle(fontSize: 11, color: Color(0xFF9CA3AF))),
                             ],
                           ),
                         ),
@@ -143,8 +143,8 @@ class FortuneScreen extends StatelessWidget {
               child: MarkdownBody(
                 data: result.interpretation,
                 styleSheet: MarkdownStyleSheet(
-                  h2: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF1F2937)),
-                  p: const TextStyle(fontSize: 15, height: 1.7, color: Color(0xFF374151)),
+                  h2: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF1F2937)),
+                  p: const TextStyle(fontSize: 13, height: 1.7, color: Color(0xFF374151)),
                 ),
               ),
             ),
@@ -175,11 +175,11 @@ class FortuneScreen extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(category.emoji, style: const TextStyle(fontSize: 22)),
+              Text(category.emoji, style: const TextStyle(fontSize: 19)),
               const SizedBox(width: 8),
               Text(
                 category.label,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF1F2937)),
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF1F2937)),
               ),
             ],
           ),
@@ -187,8 +187,8 @@ class FortuneScreen extends StatelessWidget {
           MarkdownBody(
             data: category.content,
             styleSheet: MarkdownStyleSheet(
-              h2: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF1F2937)),
-              p: const TextStyle(fontSize: 15, height: 1.7, color: Color(0xFF374151)),
+              h2: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF1F2937)),
+              p: const TextStyle(fontSize: 13, height: 1.7, color: Color(0xFF374151)),
             ),
           ),
         ],

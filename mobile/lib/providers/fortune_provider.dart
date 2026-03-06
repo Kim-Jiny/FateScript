@@ -2,8 +2,9 @@ import 'package:flutter/foundation.dart';
 import '../models/birth_info.dart';
 import '../models/fortune_result.dart';
 import '../models/daily_fortune.dart';
-import '../models/diary_result.dart';
+import '../models/name_analysis_result.dart';
 import '../models/compatibility_result.dart';
+import '../models/compatibility_history_item.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
 
@@ -13,17 +14,19 @@ class FortuneProvider extends ChangeNotifier {
 
   FortuneResult? _fortuneResult;
   DailyFortune? _dailyFortune;
-  DiaryResult? _diaryResult;
+  NameAnalysisResult? _nameAnalysisResult;
+  NameRecommendResult? _nameRecommendResult;
   CompatibilityResult? _compatibilityResult;
-  List<DiaryResult> _diaryHistory = [];
+  List<CompatibilityHistoryItem> _compatibilityHistory = [];
   bool _isLoading = false;
   String? _error;
 
   FortuneResult? get fortuneResult => _fortuneResult;
   DailyFortune? get dailyFortune => _dailyFortune;
-  DiaryResult? get diaryResult => _diaryResult;
+  NameAnalysisResult? get nameAnalysisResult => _nameAnalysisResult;
+  NameRecommendResult? get nameRecommendResult => _nameRecommendResult;
   CompatibilityResult? get compatibilityResult => _compatibilityResult;
-  List<DiaryResult> get diaryHistory => _diaryHistory;
+  List<CompatibilityHistoryItem> get compatibilityHistory => _compatibilityHistory;
   bool get isLoading => _isLoading;
   String? get error => _error;
 
@@ -85,29 +88,14 @@ class FortuneProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> loadDiaryHistory() async {
-    _diaryHistory = await _storage.loadDiaryHistory();
-    notifyListeners();
-  }
-
-  Future<void> consultDiary(BirthInfo info, String diaryText) async {
+  Future<void> analyzeName(BirthInfo info, String name) async {
     _isLoading = true;
     _error = null;
-    _diaryResult = null;
+    _nameAnalysisResult = null;
     notifyListeners();
 
     try {
-      final consultation = await _api.consultDiary(info, diaryText);
-      final now = DateTime.now();
-      final entry = DiaryResult(
-        id: now.millisecondsSinceEpoch,
-        consultation: consultation,
-        diaryText: diaryText,
-        date: '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}',
-      );
-      _diaryResult = entry;
-      await _storage.saveDiaryEntry(entry);
-      _diaryHistory = await _storage.loadDiaryHistory();
+      _nameAnalysisResult = await _api.analyzeName(info, name);
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -116,10 +104,20 @@ class FortuneProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> deleteDiaryEntry(int id) async {
-    await _storage.deleteDiaryEntry(id);
-    _diaryHistory = await _storage.loadDiaryHistory();
+  Future<void> recommendNames(BirthInfo info, String lastName) async {
+    _isLoading = true;
+    _error = null;
+    _nameRecommendResult = null;
     notifyListeners();
+
+    try {
+      _nameRecommendResult = await _api.recommendNames(info, lastName);
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> fetchCompatibility(
@@ -137,6 +135,42 @@ class FortuneProvider extends ChangeNotifier {
       _error = e.toString();
     } finally {
       _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // ── 궁합 히스토리 ──
+
+  Future<void> loadCompatibilityHistory({required bool fromServer}) async {
+    try {
+      if (fromServer) {
+        final list = await _api.getCompatibilityHistory();
+        _compatibilityHistory =
+            list.map((e) => CompatibilityHistoryItem.fromJson(e)).toList();
+      } else {
+        final list = await _storage.loadCompatibilityHistory();
+        _compatibilityHistory =
+            list.map((e) => CompatibilityHistoryItem.fromJson(e)).toList();
+      }
+    } catch (e) {
+      debugPrint('Load compatibility history failed: $e');
+      _compatibilityHistory = [];
+    }
+    notifyListeners();
+  }
+
+  Future<void> deleteCompatibilityHistoryItem(
+      int id, bool fromServer) async {
+    try {
+      if (fromServer) {
+        await _api.deleteCompatibilityHistory(id);
+      } else {
+        await _storage.deleteCompatibilityHistoryEntry(id);
+      }
+      _compatibilityHistory.removeWhere((e) => e.id == id);
+      notifyListeners();
+    } catch (e) {
+      _error = e.toString();
       notifyListeners();
     }
   }

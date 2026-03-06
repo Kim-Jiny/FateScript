@@ -3,6 +3,8 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../models/birth_info.dart';
+import '../models/compatibility_history_item.dart';
+import '../providers/auth_provider.dart';
 import '../providers/birth_info_provider.dart';
 import '../providers/fortune_provider.dart';
 import '../widgets/loading_overlay.dart';
@@ -39,6 +41,7 @@ class CompatibilityScreen extends StatefulWidget {
 }
 
 class _CompatibilityScreenState extends State<CompatibilityScreen> {
+  bool _showNewAnalysis = false;
   DateTime _selectedDate = DateTime(1990, 1, 1);
   String? _selectedTime;
   bool _timeUnknown = false;
@@ -46,6 +49,23 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
   TimeOfDay _exactTime = const TimeOfDay(hour: 12, minute: 0);
   String _partnerGender = 'male';
   String _relationship = 'lover';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  void _loadHistory() {
+    final fortuneProvider =
+        Provider.of<FortuneProvider>(context, listen: false);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (authProvider.isLoggedIn) {
+      fortuneProvider.loadCompatibilityHistory(fromServer: true);
+    } else {
+      fortuneProvider.loadCompatibilityHistory(fromServer: false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,122 +79,419 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          GestureDetector(
-            onTap: () => FocusScope.of(context).unfocus(),
-            behavior: HitTestBehavior.translucent,
-            child: SafeArea(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          SafeArea(
+            child: _showNewAnalysis
+                ? _newAnalysisView(birthProvider, fortuneProvider)
+                : _historyView(fortuneProvider),
+          ),
+          if (fortuneProvider.isLoading)
+            const LoadingOverlay(
+                message: '운명선생이 궁합을 분석하고 있습니다...'),
+        ],
+      ),
+    );
+  }
+
+  Widget _historyView(FortuneProvider fortuneProvider) {
+    final history = fortuneProvider.compatibilityHistory;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+          child: Row(
+            children: [
+              const Text('궁합 분석',
+                  style:
+                      TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
+              const Spacer(),
+              FilledButton.icon(
+                onPressed: () => setState(() => _showNewAnalysis = true),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('새 궁합 분석'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF8A4FFF),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  textStyle: const TextStyle(fontSize: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        Expanded(
+          child: history.isEmpty
+              ? _emptyHistory()
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: history.length,
+                  itemBuilder: (context, index) =>
+                      _historyCard(context, history[index], fortuneProvider),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _emptyHistory() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.favorite_outline,
+              size: 64, color: Color(0xFFD1D5DB)),
+          const SizedBox(height: 16),
+          const Text(
+            '아직 궁합 분석 기록이 없습니다.',
+            style: TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            '새 궁합 분석을 시작해 보세요.',
+            style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _historyCard(BuildContext context, CompatibilityHistoryItem item,
+      FortuneProvider fortuneProvider) {
+    return GestureDetector(
+      onTap: () => _showHistoryDetail(context, item),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.favorite,
+                    size: 16, color: Color(0xFF8A4FFF)),
+                const SizedBox(width: 6),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF8A4FFF).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    item.relationshipLabel,
+                    style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF8A4FFF)),
+                  ),
+                ),
+                const Spacer(),
+                if (item.createdAt.isNotEmpty)
+                  Text(
+                    _formatDate(item.createdAt),
+                    style: const TextStyle(
+                        fontSize: 10, color: Color(0xFF9CA3AF)),
+                  ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () =>
+                      _confirmDelete(context, item.id, fortuneProvider),
+                  child: const Icon(Icons.delete_outline,
+                      size: 18, color: Color(0xFF9CA3AF)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _personChip(
+                    '나',
+                    item.myBirthDate,
+                    item.myGender == 'male' ? '남' : '여',
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Icon(Icons.sync_alt,
+                      size: 16, color: Color(0xFF9CA3AF)),
+                ),
+                Expanded(
+                  child: _personChip(
+                    '상대',
+                    item.partnerBirthDate,
+                    item.partnerGender == 'male' ? '남' : '여',
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _personChip(String label, String birthDate, String gender) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF6B7280))),
+          const SizedBox(height: 2),
+          Text(
+            '$birthDate ($gender)',
+            style: const TextStyle(
+                fontSize: 11, color: Color(0xFF374151)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(String isoDate) {
+    try {
+      final date = DateTime.parse(isoDate);
+      return DateFormat('yyyy.MM.dd').format(date);
+    } catch (_) {
+      return isoDate;
+    }
+  }
+
+  void _showHistoryDetail(
+      BuildContext context, CompatibilityHistoryItem item) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (_, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD1D5DB),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Expanded(
+                child: ListView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.all(20),
                   children: [
-                    const SizedBox(height: 8),
-                    const Text('궁합 분석',
-                        style: TextStyle(
-                            fontSize: 22, fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 8),
-                    const Text(
-                      '상대방의 정보를 입력하면\n운명선생이 두 사람의 궁합을 분석해 드립니다.',
-                      style: TextStyle(
-                          fontSize: 14,
-                          color: Color(0xFF6B7280),
-                          height: 1.5),
-                    ),
-                    const SizedBox(height: 24),
-                    _sectionTitle('상대방 생년월일'),
-                    const SizedBox(height: 8),
-                    _datePickerTile(),
-                    const SizedBox(height: 24),
-                    _sectionTitle('상대방 태어난 시간'),
-                    const SizedBox(height: 8),
-                    _timeSection(),
-                    const SizedBox(height: 24),
-                    _sectionTitle('상대방 성별'),
-                    const SizedBox(height: 8),
-                    _genderToggle(),
-                    const SizedBox(height: 24),
-                    _sectionTitle('관계'),
-                    const SizedBox(height: 8),
-                    _relationshipSelector(),
-                    const SizedBox(height: 32),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: fortuneProvider.isLoading
-                            ? null
-                            : () => _submit(birthProvider, fortuneProvider),
-                        icon: const Icon(Icons.favorite),
-                        label: const Text('궁합 분석 시작'),
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          backgroundColor: const Color(0xFF8A4FFF),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14)),
+                    const Row(
+                      children: [
+                        Icon(Icons.favorite,
+                            color: Color(0xFF8A4FFF), size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          '운명선생의 궁합 분석',
+                          style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF8A4FFF)),
                         ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    MarkdownBody(
+                      data: item.consultation,
+                      styleSheet: MarkdownStyleSheet(
+                        h2: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1F2937)),
+                        p: const TextStyle(
+                            fontSize: 13,
+                            height: 1.7,
+                            color: Color(0xFF374151)),
                       ),
                     ),
-                    if (fortuneProvider.error != null) ...[
-                      const SizedBox(height: 12),
-                      Text(fortuneProvider.error!,
-                          style: const TextStyle(
-                              color: Colors.red, fontSize: 13)),
-                    ],
-                    if (fortuneProvider.compatibilityResult != null) ...[
-                      const SizedBox(height: 24),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border:
-                              Border.all(color: const Color(0xFFE5E7EB)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Row(
-                              children: [
-                                Icon(Icons.favorite,
-                                    color: Color(0xFF8A4FFF), size: 20),
-                                SizedBox(width: 8),
-                                Text(
-                                  '운명선생의 궁합 분석',
-                                  style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                      color: Color(0xFF8A4FFF)),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            MarkdownBody(
-                              data: fortuneProvider
-                                  .compatibilityResult!.consultation,
-                              styleSheet: MarkdownStyleSheet(
-                                h2: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF1F2937)),
-                                p: const TextStyle(
-                                    fontSize: 15,
-                                    height: 1.7,
-                                    color: Color(0xFF374151)),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
                     const SizedBox(height: 40),
                   ],
                 ),
               ),
-            ),
+            ],
           ),
-          if (fortuneProvider.isLoading)
-            const LoadingOverlay(message: '운명선생이 궁합을 분석하고 있습니다...'),
+        ),
+      ),
+    );
+  }
+
+  void _confirmDelete(
+      BuildContext context, int id, FortuneProvider fortuneProvider) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('궁합 기록 삭제'),
+        content: const Text('이 궁합 기록을 삭제하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () {
+              fortuneProvider.deleteCompatibilityHistoryItem(
+                  id, authProvider.isLoggedIn);
+              Navigator.pop(context);
+            },
+            child:
+                const Text('삭제', style: TextStyle(color: Colors.red)),
+          ),
         ],
+      ),
+    );
+  }
+
+  // ── 새 궁합 분석 ──
+
+  Widget _newAnalysisView(
+      BirthInfoProvider birthProvider, FortuneProvider fortuneProvider) {
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      behavior: HitTestBehavior.translucent,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                GestureDetector(
+                  onTap: () => setState(() => _showNewAnalysis = false),
+                  child: const Icon(Icons.arrow_back_ios, size: 20),
+                ),
+                const SizedBox(width: 8),
+                const Text('새 궁합 분석',
+                    style: TextStyle(
+                        fontSize: 19, fontWeight: FontWeight.w700)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '상대방의 정보를 입력하면\n운명선생이 두 사람의 궁합을 분석해 드립니다.',
+              style: TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF6B7280),
+                  height: 1.5),
+            ),
+            const SizedBox(height: 24),
+            _sectionTitle('상대방 생년월일'),
+            const SizedBox(height: 8),
+            _datePickerTile(),
+            const SizedBox(height: 24),
+            _sectionTitle('상대방 태어난 시간'),
+            const SizedBox(height: 8),
+            _timeSection(),
+            const SizedBox(height: 24),
+            _sectionTitle('상대방 성별'),
+            const SizedBox(height: 8),
+            _genderToggle(),
+            const SizedBox(height: 24),
+            _sectionTitle('관계'),
+            const SizedBox(height: 8),
+            _relationshipSelector(),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: fortuneProvider.isLoading
+                    ? null
+                    : () => _submit(birthProvider, fortuneProvider),
+                icon: const Icon(Icons.favorite),
+                label: const Text('궁합 분석 시작'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor: const Color(0xFF8A4FFF),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+            ),
+            if (fortuneProvider.error != null) ...[
+              const SizedBox(height: 12),
+              Text(fortuneProvider.error!,
+                  style:
+                      const TextStyle(color: Colors.red, fontSize: 11)),
+            ],
+            if (fortuneProvider.compatibilityResult != null) ...[
+              const SizedBox(height: 24),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.favorite,
+                            color: Color(0xFF8A4FFF), size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          '운명선생의 궁합 분석',
+                          style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF8A4FFF)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    MarkdownBody(
+                      data: fortuneProvider
+                          .compatibilityResult!.consultation,
+                      styleSheet: MarkdownStyleSheet(
+                        h2: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1F2937)),
+                        p: const TextStyle(
+                            fontSize: 13,
+                            height: 1.7,
+                            color: Color(0xFF374151)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 40),
+          ],
+        ),
       ),
     );
   }
@@ -182,7 +499,7 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
   Widget _sectionTitle(String title) => Text(
         title,
         style: const TextStyle(
-          fontSize: 16,
+          fontSize: 14,
           fontWeight: FontWeight.w700,
           color: Color(0xFF1F2937),
         ),
@@ -192,7 +509,8 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
     return GestureDetector(
       onTap: _pickDate,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -205,8 +523,8 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
             const SizedBox(width: 12),
             Text(
               DateFormat('yyyy년 M월 d일').format(_selectedDate),
-              style:
-                  const TextStyle(fontSize: 16, color: Color(0xFF1F2937)),
+              style: const TextStyle(
+                  fontSize: 14, color: Color(0xFF1F2937)),
             ),
           ],
         ),
@@ -289,9 +607,10 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
           child: Text(
             label,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 11,
               fontWeight: FontWeight.w600,
-              color: selected ? Colors.white : const Color(0xFF4B5563),
+              color:
+                  selected ? Colors.white : const Color(0xFF4B5563),
             ),
           ),
         ),
@@ -309,9 +628,10 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
         return GestureDetector(
           onTap: () => setState(() => _selectedTime = value),
           child: Container(
-            width: (MediaQuery.of(context).size.width - 48 - 16) / 3,
-            padding:
-                const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+            width:
+                (MediaQuery.of(context).size.width - 48 - 16) / 3,
+            padding: const EdgeInsets.symmetric(
+                vertical: 10, horizontal: 6),
             decoration: BoxDecoration(
               color: selected
                   ? const Color(0xFF8A4FFF).withValues(alpha: 0.1)
@@ -327,8 +647,9 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
               label,
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 12,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                fontSize: 10,
+                fontWeight:
+                    selected ? FontWeight.w700 : FontWeight.w500,
                 color: selected
                     ? const Color(0xFF8A4FFF)
                     : const Color(0xFF4B5563),
@@ -344,7 +665,8 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
     return GestureDetector(
       onTap: _pickExactTime,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -357,8 +679,8 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
             const SizedBox(width: 12),
             Text(
               _exactTime.format(context),
-              style:
-                  const TextStyle(fontSize: 16, color: Color(0xFF1F2937)),
+              style: const TextStyle(
+                  fontSize: 14, color: Color(0xFF1F2937)),
             ),
           ],
         ),
@@ -397,7 +719,7 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
                 child: Text(
                   '남성',
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: _partnerGender == 'male'
                         ? Colors.white
@@ -429,7 +751,7 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
                 child: Text(
                   '여성',
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: _partnerGender == 'female'
                         ? Colors.white
@@ -454,8 +776,8 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
         return GestureDetector(
           onTap: () => setState(() => _relationship = value),
           child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            padding: const EdgeInsets.symmetric(
+                horizontal: 20, vertical: 10),
             decoration: BoxDecoration(
               color: selected
                   ? const Color(0xFF8A4FFF)
@@ -470,9 +792,11 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
             child: Text(
               label,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: selected ? Colors.white : const Color(0xFF4B5563),
+                color: selected
+                    ? Colors.white
+                    : const Color(0xFF4B5563),
               ),
             ),
           ),
@@ -491,11 +815,13 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
                 size: 64, color: Color(0xFFD1D5DB)),
             const SizedBox(height: 16),
             const Text('사주 정보를 먼저 입력해 주세요.',
-                style: TextStyle(fontSize: 16, color: Color(0xFF6B7280))),
+                style: TextStyle(
+                    fontSize: 14, color: Color(0xFF6B7280))),
             const SizedBox(height: 20),
             FilledButton(
               onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const InputScreen()),
+                MaterialPageRoute(
+                    builder: (_) => const InputScreen()),
               ),
               style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF8A4FFF)),

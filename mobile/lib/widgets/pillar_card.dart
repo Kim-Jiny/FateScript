@@ -77,7 +77,7 @@ class PillarCard extends StatelessWidget {
                 Text(
                   label,
                   style: const TextStyle(
-                    fontSize: 12,
+                    fontSize: 10,
                     fontWeight: FontWeight.w600,
                     color: Color(0xFF8A4FFF),
                   ),
@@ -86,14 +86,14 @@ class PillarCard extends StatelessWidget {
                 Text(
                   stemHanja,
                   style: TextStyle(
-                    fontSize: 28,
+                    fontSize: 24,
                     fontWeight: FontWeight.w700,
                     color: stemColor.withValues(alpha: 0.9),
                   ),
                 ),
                 Text(
                   stem,
-                  style: TextStyle(fontSize: 13, color: stemColor.withValues(alpha: 0.7)),
+                  style: TextStyle(fontSize: 11, color: stemColor.withValues(alpha: 0.7)),
                 ),
               ],
             ),
@@ -108,14 +108,14 @@ class PillarCard extends StatelessWidget {
                 Text(
                   branchHanja,
                   style: TextStyle(
-                    fontSize: 28,
+                    fontSize: 24,
                     fontWeight: FontWeight.w700,
                     color: branchColor.withValues(alpha: 0.9),
                   ),
                 ),
                 Text(
                   branch,
-                  style: TextStyle(fontSize: 13, color: branchColor.withValues(alpha: 0.7)),
+                  style: TextStyle(fontSize: 11, color: branchColor.withValues(alpha: 0.7)),
                 ),
               ],
             ),

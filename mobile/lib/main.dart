@@ -1,18 +1,28 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'app.dart';
+import 'firebase_options.dart';
+import 'providers/auth_provider.dart';
 import 'providers/birth_info_provider.dart';
 import 'providers/fortune_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  final authProvider = AuthProvider();
+  if (authProvider.isLoggedIn) {
+    await authProvider.updateApiToken();
+  }
 
   final birthInfoProvider = BirthInfoProvider();
   await birthInfoProvider.load();
 
   final fortuneProvider = FortuneProvider();
   await fortuneProvider.loadSavedFortune();
-  await fortuneProvider.loadDiaryHistory();
 
   birthInfoProvider.onBirthInfoChanged = () {
     fortuneProvider.clearAllSaved();
@@ -21,6 +31,7 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider.value(value: authProvider),
         ChangeNotifierProvider.value(value: birthInfoProvider),
         ChangeNotifierProvider.value(value: fortuneProvider),
       ],

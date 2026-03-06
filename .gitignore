@@ -4,6 +4,10 @@
 server/.env
 server/.env.local
 
+# Firebase service account key
+*-firebase-adminsdk-*.json
+server/firebase-service-account.json
+
 # node
 server/node_modules/
 

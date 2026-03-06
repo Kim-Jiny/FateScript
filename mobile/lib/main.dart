@@ -14,9 +14,7 @@ void main() async {
   );
 
   final authProvider = AuthProvider();
-  if (authProvider.isLoggedIn) {
-    await authProvider.updateApiToken();
-  }
+  await authProvider.waitForAuthReady();
 
   final birthInfoProvider = BirthInfoProvider();
   await birthInfoProvider.load();

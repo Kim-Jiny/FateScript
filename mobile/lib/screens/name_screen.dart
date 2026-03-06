@@ -37,6 +37,7 @@ class _NameScreenState extends State<NameScreen> {
   final _nameController = TextEditingController();
   final _lastNameController = TextEditingController();
   Map<int, HanjaEntry> _selectedHanja = {};
+  Map<int, HanjaEntry> _selectedLastNameHanja = {};
 
   // 생년월일 입력 관련
   bool _useSavedSaju = true;
@@ -51,15 +52,21 @@ class _NameScreenState extends State<NameScreen> {
   void initState() {
     super.initState();
     _nameController.addListener(_onNameChanged);
+    _lastNameController.addListener(_onLastNameChanged);
   }
 
   void _onNameChanged() {
     setState(() => _selectedHanja = {});
   }
 
+  void _onLastNameChanged() {
+    setState(() => _selectedLastNameHanja = {});
+  }
+
   @override
   void dispose() {
     _nameController.removeListener(_onNameChanged);
+    _lastNameController.removeListener(_onLastNameChanged);
     _nameController.dispose();
     _lastNameController.dispose();
     super.dispose();
@@ -762,6 +769,7 @@ class _NameScreenState extends State<NameScreen> {
             ),
             child: TextField(
               controller: _lastNameController,
+              onChanged: (_) => setState(() {}),
               decoration: const InputDecoration(
                 hintText: '성을 입력하세요 (예: 김)',
                 hintStyle: TextStyle(color: Color(0xFFD1D5DB)),
@@ -772,6 +780,14 @@ class _NameScreenState extends State<NameScreen> {
               style: const TextStyle(fontSize: 14),
             ),
           ),
+          const SizedBox(height: 16),
+          if (_lastNameController.text.trim().isNotEmpty)
+            HanjaSelector(
+              name: _lastNameController.text.trim(),
+              selectedHanja: _selectedLastNameHanja,
+              onChanged: (updated) =>
+                  setState(() => _selectedLastNameHanja = updated),
+            ),
           const SizedBox(height: 20),
           _birthInfoSection(birthProvider),
           const SizedBox(height: 24),
@@ -931,7 +947,19 @@ class _NameScreenState extends State<NameScreen> {
       );
       return;
     }
+
+    // 선택된 한자로 성씨 구성
+    String fullLastName = lastName;
+    if (_selectedLastNameHanja.isNotEmpty) {
+      final chars = lastName.characters.toList();
+      final hanjaChars = List.generate(chars.length, (i) {
+        final entry = _selectedLastNameHanja[i];
+        return entry?.hanja ?? chars[i];
+      });
+      fullLastName = '$lastName(${hanjaChars.join()})';
+    }
+
     final info = _getEffectiveBirthInfo(birthProvider);
-    fortuneProvider.recommendNames(info, lastName);
+    fortuneProvider.recommendNames(info, fullLastName);
   }
 }

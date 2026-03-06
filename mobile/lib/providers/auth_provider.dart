@@ -23,8 +23,22 @@ class AuthProvider extends ChangeNotifier {
     _user = _authService.currentUser;
     _authService.authStateChanges.listen((user) {
       _user = user;
+      if (user != null) {
+        updateApiToken();
+      } else {
+        _apiService.setAuthToken(null);
+      }
       notifyListeners();
     });
+  }
+
+  /// Firebase Auth 세션 복원을 대기
+  Future<void> waitForAuthReady() async {
+    final user = await _authService.authStateChanges.first;
+    _user = user;
+    if (user != null) {
+      await updateApiToken();
+    }
   }
 
   Future<String?> getIdToken() async {

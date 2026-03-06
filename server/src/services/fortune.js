@@ -19,6 +19,20 @@ async function askGemini(userPrompt, systemPrompt) {
   return response.text;
 }
 
+async function askGeminiJson(userPrompt, systemPrompt) {
+  const response = await ai.models.generateContent({
+    model: MODEL,
+    contents: userPrompt,
+    config: {
+      systemInstruction: systemPrompt,
+      maxOutputTokens: 8192,
+      temperature: 0.8,
+      responseMimeType: 'application/json',
+    },
+  });
+  return response.text;
+}
+
 // ── 카테고리 매핑 ──────────────────────────────────
 const CATEGORY_META = [
   { key: 'love',          label: '연애운',        emoji: '💕' },
@@ -179,9 +193,9 @@ export async function analyzeNameFortune({ year, month, day, hour, minute, gende
 
   const sajuInfo = getSajuInfo(year, month, day, hour, minute);
   const prompt = buildNameAnalysisPrompt(sajuInfo, name, gender);
-  const rawText = await askGemini(prompt, getSystemPrompt('year'));
+  const rawText = await askGeminiJson(prompt, getSystemPrompt('year'));
 
-  const result = extractJson(rawText) ?? { raw: rawText };
+  const result = extractJson(rawText) ?? JSON.parse(rawText);
 
   await pool.query(
     'INSERT INTO name_analysis_cache (cache_key, result) VALUES ($1, $2) ON CONFLICT (cache_key) DO NOTHING',
@@ -209,9 +223,9 @@ export async function recommendNames({ year, month, day, hour, minute, gender, l
 
   const sajuInfo = getSajuInfo(year, month, day, hour, minute);
   const prompt = buildNameRecommendPrompt(sajuInfo, lastName, gender);
-  const rawText = await askGemini(prompt, getSystemPrompt('year'));
+  const rawText = await askGeminiJson(prompt, getSystemPrompt('year'));
 
-  const result = extractJson(rawText) ?? { raw: rawText };
+  const result = extractJson(rawText) ?? JSON.parse(rawText);
 
   await pool.query(
     'INSERT INTO name_analysis_cache (cache_key, result) VALUES ($1, $2) ON CONFLICT (cache_key) DO NOTHING',

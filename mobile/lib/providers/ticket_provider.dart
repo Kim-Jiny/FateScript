@@ -34,6 +34,7 @@ class TicketProvider extends ChangeNotifier {
     await loadProducts();
     final ids = _products.map((p) => p.productId).toSet();
     await _iap.initialize(productIds: ids);
+    notifyListeners();
   }
 
   Future<void> loadProducts() async {

@@ -367,7 +367,10 @@ class _MyPageContent extends StatelessWidget {
                 children: ticketProvider.products.map((product) {
                   final storeProduct =
                       ticketProvider.iapService.products[product.productId];
-                  final price = storeProduct?.price ?? '---';
+                  final price = storeProduct?.price ??
+                      (product.priceKrw > 0
+                          ? '₩${product.priceKrw.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')}'
+                          : '---');
                   final isFirst = product == ticketProvider.products.first;
                   final isLast = product == ticketProvider.products.last;
                   return Expanded(

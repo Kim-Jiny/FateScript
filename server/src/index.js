@@ -8,6 +8,7 @@ import dailyRoutes from './routes/daily.js';
 import nameAnalysisRoutes from './routes/name-analysis.js';
 import compatibilityRoutes from './routes/compatibility.js';
 import userRoutes from './routes/user.js';
+import ticketRoutes from './routes/tickets.js';
 
 const app = express();
 const port = Number(process.env.PORT ?? 3000);
@@ -28,6 +29,7 @@ app.use('/api/daily', dailyRoutes);
 app.use('/api/name-analysis', nameAnalysisRoutes);
 app.use('/api/compatibility', compatibilityRoutes);
 app.use('/api/user', userRoutes);
+app.use('/api/tickets', ticketRoutes);
 
 await initDb();
 

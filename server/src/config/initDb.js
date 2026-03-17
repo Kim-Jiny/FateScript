@@ -55,6 +55,24 @@ export async function initDb() {
     );
 
     CREATE INDEX IF NOT EXISTS idx_compat_history_uid ON compatibility_history(uid);
+
+    CREATE TABLE IF NOT EXISTS tickets (
+      uid TEXT PRIMARY KEY,
+      balance INT NOT NULL DEFAULT 0,
+      updated_at TIMESTAMPTZ DEFAULT now()
+    );
+
+    CREATE TABLE IF NOT EXISTS ticket_transactions (
+      id SERIAL PRIMARY KEY,
+      uid TEXT NOT NULL,
+      type TEXT NOT NULL,
+      amount INT NOT NULL,
+      balance_after INT NOT NULL,
+      ref_id TEXT,
+      created_at TIMESTAMPTZ DEFAULT now()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_ticket_txn_uid ON ticket_transactions(uid);
   `);
 
   console.log('DB tables initialized');

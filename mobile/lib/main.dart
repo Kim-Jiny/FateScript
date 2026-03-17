@@ -6,6 +6,7 @@ import 'firebase_options.dart';
 import 'providers/auth_provider.dart';
 import 'providers/birth_info_provider.dart';
 import 'providers/fortune_provider.dart';
+import 'providers/ticket_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,6 +34,13 @@ void main() async {
   final fortuneProvider = FortuneProvider();
   await fortuneProvider.loadSavedFortune();
 
+  final ticketProvider = TicketProvider();
+  await ticketProvider.initialize();
+
+  if (authProvider.isLoggedIn) {
+    await ticketProvider.loadBalance();
+  }
+
   birthInfoProvider.onBirthInfoChanged = () {
     fortuneProvider.clearAllSaved();
   };
@@ -43,6 +51,7 @@ void main() async {
         ChangeNotifierProvider.value(value: authProvider),
         ChangeNotifierProvider.value(value: birthInfoProvider),
         ChangeNotifierProvider.value(value: fortuneProvider),
+        ChangeNotifierProvider.value(value: ticketProvider),
       ],
       child: const UnmyeongDiaryApp(),
     ),

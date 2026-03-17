@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../providers/birth_info_provider.dart';
 import '../providers/fortune_provider.dart';
+import '../providers/ticket_provider.dart';
 import '../models/fortune_result.dart';
+import '../services/api_service.dart';
 import '../widgets/pillar_card.dart';
 import '../widgets/oheng_chart.dart';
 import '../widgets/loading_overlay.dart';
 import 'input_screen.dart';
+import 'login_screen.dart';
 
 class FortuneScreen extends StatefulWidget {
   const FortuneScreen({super.key});
@@ -71,6 +75,52 @@ class _FortuneScreenState extends State<FortuneScreen> {
     );
   }
 
+  Future<void> _fetchWithTicket(BuildContext context, BirthInfoProvider birthProvider, FortuneProvider fortuneProvider) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (!authProvider.isLoggedIn) {
+      final result = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
+      if (result != true) return;
+    }
+
+    final ticketProvider = Provider.of<TicketProvider>(context, listen: false);
+    // 이미 캐시된 결과가 있으면 티켓 미소모
+    if (fortuneProvider.fortuneResult != null) {
+      await fortuneProvider.clearSavedFortune();
+      if (context.mounted) {
+        await fortuneProvider.fetchFortune(birthProvider.birthInfo!);
+      }
+      return;
+    }
+
+    try {
+      await ticketProvider.consumeTicket('fortune');
+    } on InsufficientTicketsException {
+      if (context.mounted) _showInsufficientDialog(context);
+      return;
+    }
+    if (context.mounted) {
+      await fortuneProvider.fetchFortune(birthProvider.birthInfo!);
+    }
+  }
+
+  void _showInsufficientDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('티켓 부족'),
+        content: const Text('사주 티켓이 부족합니다.\n마이페이지에서 티켓을 구매해 주세요.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _emptyState(BuildContext context, BirthInfoProvider birthProvider,
       FortuneProvider fortuneProvider) {
     return Center(
@@ -92,7 +142,7 @@ class _FortuneScreenState extends State<FortuneScreen> {
           const SizedBox(height: 24),
           FilledButton(
             onPressed: () =>
-                fortuneProvider.fetchFortune(birthProvider.birthInfo!),
+                _fetchWithTicket(context, birthProvider, fortuneProvider),
             style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF8A4FFF)),
             child: const Text('사주 분석 시작'),
@@ -109,10 +159,7 @@ class _FortuneScreenState extends State<FortuneScreen> {
         result.manseryeok.isNotEmpty ? result.manseryeok : result.interpretation;
 
     return RefreshIndicator(
-      onRefresh: () async {
-        await fortuneProvider.clearSavedFortune();
-        await fortuneProvider.fetchFortune(birthProvider.birthInfo!);
-      },
+      onRefresh: () => _fetchWithTicket(context, birthProvider, fortuneProvider),
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(20),

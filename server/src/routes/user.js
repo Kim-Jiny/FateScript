@@ -26,6 +26,12 @@ router.post('/saju', requireAuth, async (req, res) => {
     );
     console.log(`[user/saju] DB result: rowCount=${result.rowCount}`);
 
+    // 신규 유저에게 무료 티켓 3장 지급
+    await pool.query(
+      `INSERT INTO tickets (uid, balance) VALUES ($1, 3) ON CONFLICT DO NOTHING`,
+      [req.uid],
+    );
+
     res.json({ ok: true });
   } catch (err) {
     console.error('[user/saju] Save saju error:', err);
@@ -66,6 +72,8 @@ router.delete('/account', requireAuth, async (req, res) => {
   try {
     const uid = req.uid;
 
+    await pool.query('DELETE FROM ticket_transactions WHERE uid = $1', [uid]);
+    await pool.query('DELETE FROM tickets WHERE uid = $1', [uid]);
     await pool.query('DELETE FROM compatibility_history WHERE uid = $1', [uid]);
     await pool.query('DELETE FROM users WHERE uid = $1', [uid]);
 

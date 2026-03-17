@@ -7,8 +7,11 @@ import '../models/compatibility_history_item.dart';
 import '../providers/auth_provider.dart';
 import '../providers/birth_info_provider.dart';
 import '../providers/fortune_provider.dart';
+import '../providers/ticket_provider.dart';
+import '../services/api_service.dart';
 import '../widgets/loading_overlay.dart';
 import 'input_screen.dart';
+import 'login_screen.dart';
 
 const _siJin = [
   ('자시 (23:00~01:00)', '00:00'),
@@ -837,7 +840,37 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
   }
 
   void _submit(
-      BirthInfoProvider birthProvider, FortuneProvider fortuneProvider) {
+      BirthInfoProvider birthProvider, FortuneProvider fortuneProvider) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (!authProvider.isLoggedIn) {
+      final result = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
+      if (result != true) return;
+    }
+
+    final ticketProvider = Provider.of<TicketProvider>(context, listen: false);
+    try {
+      await ticketProvider.consumeTicket('compatibility');
+    } on InsufficientTicketsException {
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('티켓 부족'),
+            content: const Text('사주 티켓이 부족합니다.\n마이페이지에서 티켓을 구매해 주세요.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('확인'),
+              ),
+            ],
+          ),
+        );
+      }
+      return;
+    }
+
     String? time;
     if (_timeUnknown) {
       time = 'unknown';
@@ -854,9 +887,10 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
       gender: _partnerGender,
     );
 
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (!mounted) return;
+    final authProv = Provider.of<AuthProvider>(context, listen: false);
     fortuneProvider.fetchCompatibility(
         birthProvider.birthInfo!, partnerInfo, _relationship,
-        isLoggedIn: authProvider.isLoggedIn);
+        isLoggedIn: authProv.isLoggedIn);
   }
 }

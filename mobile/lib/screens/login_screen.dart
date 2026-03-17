@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/birth_info_provider.dart';
+import '../providers/ticket_provider.dart';
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
@@ -123,5 +124,8 @@ class LoginScreen extends StatelessWidget {
     final birthProvider =
         Provider.of<BirthInfoProvider>(context, listen: false);
     await birthProvider.syncWithServer();
+    final ticketProvider =
+        Provider.of<TicketProvider>(context, listen: false);
+    await ticketProvider.loadBalance();
   }
 }

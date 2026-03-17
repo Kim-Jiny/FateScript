@@ -196,6 +196,69 @@ class ApiService {
     }
   }
 
+  // ── Ticket API ──
+
+  Future<int> getTicketBalance() async {
+    final response = await http
+        .get(
+          Uri.parse('$_baseUrl/api/tickets/balance'),
+          headers: _headers,
+        )
+        .timeout(_timeout);
+
+    if (response.statusCode != 200) {
+      throw Exception('티켓 잔액 조회에 실패했습니다 (${response.statusCode})');
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return json['balance'] as int;
+  }
+
+  Future<int> consumeTicket(String type) async {
+    final response = await http
+        .post(
+          Uri.parse('$_baseUrl/api/tickets/consume'),
+          headers: _headers,
+          body: jsonEncode({'type': type}),
+        )
+        .timeout(_timeout);
+
+    if (response.statusCode == 402) {
+      throw InsufficientTicketsException();
+    }
+    if (response.statusCode != 200) {
+      throw Exception('티켓 소모에 실패했습니다 (${response.statusCode})');
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return json['balance'] as int;
+  }
+
+  Future<int> verifyPurchase({
+    required String platform,
+    required String productId,
+    required String purchaseToken,
+  }) async {
+    final response = await http
+        .post(
+          Uri.parse('$_baseUrl/api/tickets/verify-purchase'),
+          headers: _headers,
+          body: jsonEncode({
+            'platform': platform,
+            'productId': productId,
+            'purchaseToken': purchaseToken,
+          }),
+        )
+        .timeout(_timeout);
+
+    if (response.statusCode != 200) {
+      throw Exception('구매 검증에 실패했습니다 (${response.statusCode})');
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return json['balance'] as int;
+  }
+
   // ── Compatibility History API ──
 
   Future<List<Map<String, dynamic>>> getCompatibilityHistory() async {
@@ -226,4 +289,9 @@ class ApiService {
       throw Exception('궁합 히스토리 삭제에 실패했습니다 (${response.statusCode})');
     }
   }
+}
+
+class InsufficientTicketsException implements Exception {
+  @override
+  String toString() => '티켓이 부족합니다.';
 }

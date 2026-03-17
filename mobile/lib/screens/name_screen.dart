@@ -5,10 +5,14 @@ import 'package:provider/provider.dart';
 import '../data/hanja_dict.dart';
 import '../models/birth_info.dart';
 import '../models/name_analysis_result.dart';
+import '../providers/auth_provider.dart';
 import '../providers/birth_info_provider.dart';
 import '../providers/fortune_provider.dart';
+import '../providers/ticket_provider.dart';
+import '../services/api_service.dart';
 import '../widgets/hanja_selector.dart';
 import '../widgets/loading_overlay.dart';
+import 'login_screen.dart';
 
 const _siJin = [
   ('자시 (23:00~01:00)', '00:00'),
@@ -911,10 +915,45 @@ class _NameScreenState extends State<NameScreen> {
     );
   }
 
+  // ── 티켓 게이팅 ──
+
+  Future<bool> _checkTicket(String type) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (!authProvider.isLoggedIn) {
+      final result = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
+      if (result != true) return false;
+    }
+
+    final ticketProvider = Provider.of<TicketProvider>(context, listen: false);
+    try {
+      await ticketProvider.consumeTicket(type);
+      return true;
+    } on InsufficientTicketsException {
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('티켓 부족'),
+            content: const Text('사주 티켓이 부족합니다.\n마이페이지에서 티켓을 구매해 주세요.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('확인'),
+              ),
+            ],
+          ),
+        );
+      }
+      return false;
+    }
+  }
+
   // ── 제출 ──
 
   void _submitAnalyze(
-      BirthInfoProvider birthProvider, FortuneProvider fortuneProvider) {
+      BirthInfoProvider birthProvider, FortuneProvider fortuneProvider) async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -922,6 +961,8 @@ class _NameScreenState extends State<NameScreen> {
       );
       return;
     }
+
+    if (!await _checkTicket('name_analyze')) return;
 
     // 선택된 한자로 한자 이름 구성
     String fullName = name;
@@ -939,7 +980,7 @@ class _NameScreenState extends State<NameScreen> {
   }
 
   void _submitRecommend(
-      BirthInfoProvider birthProvider, FortuneProvider fortuneProvider) {
+      BirthInfoProvider birthProvider, FortuneProvider fortuneProvider) async {
     final lastName = _lastNameController.text.trim();
     if (lastName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -947,6 +988,8 @@ class _NameScreenState extends State<NameScreen> {
       );
       return;
     }
+
+    if (!await _checkTicket('name_recommend')) return;
 
     // 선택된 한자로 성씨 구성
     String fullLastName = lastName;

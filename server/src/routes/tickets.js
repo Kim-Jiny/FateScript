@@ -5,6 +5,24 @@ import pool from '../config/db.js';
 const router = Router();
 
 /**
+ * GET /api/tickets/products — 활성 상품 목록 (인증 불필요)
+ */
+router.get('/products', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT product_id, name, ticket_count, price_krw
+       FROM iap_products
+       WHERE is_active = true
+       ORDER BY sort_order ASC, id ASC`,
+    );
+    res.json({ products: rows });
+  } catch (err) {
+    console.error('Get products error:', err);
+    res.status(500).json({ error: '상품 목록 조회 중 오류가 발생했습니다.' });
+  }
+});
+
+/**
  * GET /api/tickets/balance — 티켓 잔액 조회
  */
 router.get('/balance', requireAuth, async (req, res) => {
@@ -117,16 +135,15 @@ router.post('/verify-purchase', requireAuth, async (req, res) => {
       return res.json({ balance: rows[0]?.balance ?? 0, duplicate: true });
     }
 
-    // 상품 ID → 티켓 수 매핑
-    const ticketMap = {
-      saju_ticket_3: 3,
-      saju_ticket_10: 10,
-      saju_ticket_30: 30,
-    };
-    const ticketCount = ticketMap[productId];
-    if (!ticketCount) {
+    // 상품 ID → 티켓 수 DB 조회
+    const { rows: productRows } = await pool.query(
+      'SELECT ticket_count FROM iap_products WHERE product_id = $1',
+      [productId],
+    );
+    if (productRows.length === 0) {
       return res.status(400).json({ error: '알 수 없는 상품 ID입니다.' });
     }
+    const ticketCount = productRows[0].ticket_count;
 
     // TODO: 실제 스토어 영수증 검증 (Apple/Google) 추가
     // 현재는 클라이언트 신뢰 기반으로 처리
@@ -187,13 +204,12 @@ router.post('/restore-purchases', requireAuth, async (req, res) => {
       );
       if (existing.length > 0) continue;
 
-      const ticketMap = {
-        saju_ticket_3: 3,
-        saju_ticket_10: 10,
-        saju_ticket_30: 30,
-      };
-      const ticketCount = ticketMap[productId];
-      if (!ticketCount) continue;
+      const { rows: productRows } = await pool.query(
+        'SELECT ticket_count FROM iap_products WHERE product_id = $1',
+        [productId],
+      );
+      if (productRows.length === 0) continue;
+      const ticketCount = productRows[0].ticket_count;
 
       await pool.query(
         `INSERT INTO tickets (uid, balance, updated_at)

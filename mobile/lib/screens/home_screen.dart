@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/birth_info_provider.dart';
 import '../providers/ticket_provider.dart';
-import '../models/ticket_product.dart';
 import 'input_screen.dart';
 import 'inquiry_screen.dart';
 import 'login_screen.dart';
@@ -365,15 +364,17 @@ class _MyPageContent extends StatelessWidget {
               ],
               const SizedBox(height: 16),
               Row(
-                children: ticketProducts.map((product) {
+                children: ticketProvider.products.map((product) {
                   final storeProduct =
                       ticketProvider.iapService.products[product.productId];
                   final price = storeProduct?.price ?? '---';
+                  final isFirst = product == ticketProvider.products.first;
+                  final isLast = product == ticketProvider.products.last;
                   return Expanded(
                     child: Padding(
                       padding: EdgeInsets.only(
-                        left: product == ticketProducts.first ? 0 : 4,
-                        right: product == ticketProducts.last ? 0 : 4,
+                        left: isFirst ? 0 : 4,
+                        right: isLast ? 0 : 4,
                       ),
                       child: GestureDetector(
                         onTap: ticketProvider.isPurchasing

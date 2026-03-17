@@ -1,17 +1,24 @@
 class TicketProduct {
   final String productId;
-  final String label;
+  final String name;
   final int ticketCount;
+  final int priceKrw;
 
   const TicketProduct({
     required this.productId,
-    required this.label,
+    required this.name,
     required this.ticketCount,
+    this.priceKrw = 0,
   });
-}
 
-const ticketProducts = [
-  TicketProduct(productId: 'saju_ticket_3', label: '3장', ticketCount: 3),
-  TicketProduct(productId: 'saju_ticket_10', label: '10장', ticketCount: 10),
-  TicketProduct(productId: 'saju_ticket_30', label: '30장', ticketCount: 30),
-];
+  String get label => '$ticketCount장';
+
+  factory TicketProduct.fromJson(Map<String, dynamic> json) {
+    return TicketProduct(
+      productId: json['product_id'] as String,
+      name: json['name'] as String,
+      ticketCount: json['ticket_count'] as int,
+      priceKrw: json['price_krw'] as int? ?? 0,
+    );
+  }
+}

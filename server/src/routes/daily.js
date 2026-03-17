@@ -1,9 +1,10 @@
 import { Router } from 'express';
-import { getDailyFortune } from '../services/fortune.js';
+import { getDailyFortune, saveUserResult } from '../services/fortune.js';
+import { optionalAuth } from '../middleware/auth.js';
 
 const router = Router();
 
-router.post('/', async (req, res) => {
+router.post('/', optionalAuth, async (req, res) => {
   try {
     const { birthDate, birthTime, gender } = req.body ?? {};
 
@@ -22,6 +23,23 @@ router.post('/', async (req, res) => {
     }
 
     const result = await getDailyFortune({ year, month, day, hour, minute, gender });
+
+    // 로그인한 유저면 결과 저장
+    if (req.uid) {
+      try {
+        const todayDate = new Date().toISOString().slice(0, 10);
+        await saveUserResult({
+          uid: req.uid,
+          type: 'daily',
+          params: { birthDate, birthTime, gender },
+          result,
+          date: todayDate,
+        });
+      } catch (err) {
+        console.error('Failed to save user daily result:', err);
+      }
+    }
+
     res.json(result);
   } catch (err) {
     console.error('Daily fortune error:', err);

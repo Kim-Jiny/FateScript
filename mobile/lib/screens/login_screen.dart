@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/birth_info_provider.dart';
+import '../providers/fortune_provider.dart';
 import '../providers/ticket_provider.dart';
 
 class LoginScreen extends StatelessWidget {
@@ -127,5 +128,8 @@ class LoginScreen extends StatelessWidget {
     final ticketProvider =
         Provider.of<TicketProvider>(context, listen: false);
     await ticketProvider.loadBalance();
+    final fortuneProvider =
+        Provider.of<FortuneProvider>(context, listen: false);
+    await fortuneProvider.loadFromServer(birthProvider.birthInfo);
   }
 }

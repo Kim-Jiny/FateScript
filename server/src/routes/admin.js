@@ -123,4 +123,93 @@ router.put('/inquiries/:id', adminAuth, async (req, res) => {
   }
 });
 
+// ── IAP Products CRUD ──
+
+// GET /api/admin/products — 전체 상품 목록
+router.get('/products', adminAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM iap_products ORDER BY sort_order ASC, id ASC'
+    );
+    res.json({ products: result.rows });
+  } catch (error) {
+    console.error('Get products error:', error);
+    res.status(500).json({ error: 'Failed to get products' });
+  }
+});
+
+// POST /api/admin/products — 상품 추가
+router.post('/products', adminAuth, async (req, res) => {
+  try {
+    const { product_id, name, ticket_count, price_krw, is_active, sort_order } = req.body;
+
+    if (!product_id || !name || !ticket_count) {
+      return res.status(400).json({ error: 'product_id, name, ticket_count are required' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO iap_products (product_id, name, ticket_count, price_krw, is_active, sort_order)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING *`,
+      [product_id, name, ticket_count, price_krw ?? 0, is_active ?? true, sort_order ?? 0]
+    );
+
+    res.json({ product: result.rows[0] });
+  } catch (error) {
+    console.error('Create product error:', error);
+    if (error.code === '23505') {
+      return res.status(409).json({ error: '이미 존재하는 product_id입니다.' });
+    }
+    res.status(500).json({ error: 'Failed to create product' });
+  }
+});
+
+// PUT /api/admin/products/:id — 상품 수정
+router.put('/products/:id', adminAuth, async (req, res) => {
+  try {
+    const { name, ticket_count, price_krw, is_active, sort_order } = req.body;
+
+    const result = await pool.query(
+      `UPDATE iap_products
+       SET name = COALESCE($1, name),
+           ticket_count = COALESCE($2, ticket_count),
+           price_krw = COALESCE($3, price_krw),
+           is_active = COALESCE($4, is_active),
+           sort_order = COALESCE($5, sort_order),
+           updated_at = now()
+       WHERE id = $6
+       RETURNING *`,
+      [name, ticket_count, price_krw, is_active, sort_order, req.params.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    res.json({ product: result.rows[0] });
+  } catch (error) {
+    console.error('Update product error:', error);
+    res.status(500).json({ error: 'Failed to update product' });
+  }
+});
+
+// DELETE /api/admin/products/:id — 상품 삭제
+router.delete('/products/:id', adminAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'DELETE FROM iap_products WHERE id = $1 RETURNING *',
+      [req.params.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete product error:', error);
+    res.status(500).json({ error: 'Failed to delete product' });
+  }
+});
+
 export default router;

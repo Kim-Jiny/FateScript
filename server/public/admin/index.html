@@ -21,8 +21,16 @@
   .app { display: none; }
   .header { background: #fff; padding: 16px 24px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; }
   .header h1 { font-size: 18px; color: #8A4FFF; }
+  .header-right { display: flex; align-items: center; gap: 12px; }
   .header button { padding: 6px 14px; background: none; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; font-size: 13px; }
   .content { max-width: 960px; margin: 24px auto; padding: 0 16px; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 0; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; }
+  .tabs button { padding: 10px 20px; border: none; background: none; cursor: pointer; font-size: 14px; font-weight: 600; color: #999; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+  .tabs button.active { color: #8A4FFF; border-bottom-color: #8A4FFF; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
 
   /* Filters */
   .filters { display: flex; gap: 8px; margin-bottom: 16px; }
@@ -56,6 +64,36 @@
   .reply-existing { background: #f0fdf4; padding: 12px; border-radius: 8px; font-size: 14px; line-height: 1.6; white-space: pre-wrap; border-left: 3px solid #22c55e; }
   .close-btn { float: right; background: none; border: none; font-size: 22px; cursor: pointer; color: #999; }
   .empty { text-align: center; padding: 60px 20px; color: #999; font-size: 14px; }
+
+  /* Product table */
+  .product-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .product-header h2 { font-size: 16px; font-weight: 700; }
+  .btn-add { padding: 8px 16px; background: #8A4FFF; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .btn-add:hover { background: #7a3fef; }
+  .product-table { width: 100%; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 8px rgba(0,0,0,0.05); border-collapse: collapse; }
+  .product-table th { background: #f9fafb; padding: 12px 16px; text-align: left; font-size: 12px; color: #6b7280; font-weight: 600; border-bottom: 1px solid #e5e7eb; }
+  .product-table td { padding: 12px 16px; font-size: 14px; border-bottom: 1px solid #f0f0f0; }
+  .product-table tr:last-child td { border-bottom: none; }
+  .product-table tr:hover { background: #faf8ff; }
+  .toggle { position: relative; display: inline-block; width: 40px; height: 22px; cursor: pointer; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle .slider { position: absolute; inset: 0; background: #ccc; border-radius: 22px; transition: .2s; }
+  .toggle .slider:before { content: ''; position: absolute; width: 16px; height: 16px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: .2s; }
+  .toggle input:checked + .slider { background: #8A4FFF; }
+  .toggle input:checked + .slider:before { transform: translateX(18px); }
+  .btn-edit, .btn-del { padding: 4px 10px; border: 1px solid #ddd; border-radius: 6px; background: #fff; cursor: pointer; font-size: 12px; margin-right: 4px; }
+  .btn-edit:hover { border-color: #8A4FFF; color: #8A4FFF; }
+  .btn-del { color: #e53e3e; border-color: #fecaca; }
+  .btn-del:hover { background: #fef2f2; }
+
+  /* Modal form */
+  .modal-form label { display: block; font-size: 13px; color: #555; margin-bottom: 4px; margin-top: 12px; }
+  .modal-form input { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
+  .modal-form .form-actions { margin-top: 20px; display: flex; gap: 8px; justify-content: flex-end; }
+  .modal-form .form-actions button { padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; }
+  .modal-form .btn-cancel { background: #f3f4f6; color: #333; }
+  .modal-form .btn-save { background: #8A4FFF; color: #fff; }
+  .modal-form .btn-save:hover { background: #7a3fef; }
 </style>
 </head>
 <body>
@@ -78,23 +116,79 @@
     <button onclick="logout()">로그아웃</button>
   </div>
   <div class="content">
-    <div class="filters">
-      <button class="active" onclick="filterStatus('all', this)">전체</button>
-      <button onclick="filterStatus('pending', this)">대기중</button>
-      <button onclick="filterStatus('replied', this)">답변완료</button>
+    <div class="tabs">
+      <button class="active" onclick="switchTab('inquiries', this)">문의관리</button>
+      <button onclick="switchTab('products', this)">상품관리</button>
     </div>
-    <div class="inquiry-list" id="inquiryList"></div>
+
+    <!-- 문의관리 탭 -->
+    <div class="tab-content active" id="tab-inquiries">
+      <div class="filters">
+        <button class="active" onclick="filterStatus('all', this)">전체</button>
+        <button onclick="filterStatus('pending', this)">대기중</button>
+        <button onclick="filterStatus('replied', this)">답변완료</button>
+      </div>
+      <div class="inquiry-list" id="inquiryList"></div>
+    </div>
+
+    <!-- 상품관리 탭 -->
+    <div class="tab-content" id="tab-products">
+      <div class="product-header">
+        <h2>인앱결제 상품</h2>
+        <button class="btn-add" onclick="openProductModal()">+ 상품 추가</button>
+      </div>
+      <table class="product-table">
+        <thead>
+          <tr>
+            <th>상품 ID</th>
+            <th>상품명</th>
+            <th>티켓 수</th>
+            <th>가격 (원)</th>
+            <th>활성</th>
+            <th>정렬</th>
+            <th>관리</th>
+          </tr>
+        </thead>
+        <tbody id="productBody"></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
-<!-- Detail Modal -->
+<!-- Detail Modal (inquiries) -->
 <div class="detail-overlay" id="detailOverlay" onclick="if(event.target===this)closeDetail()">
   <div class="detail-box" id="detailBox"></div>
+</div>
+
+<!-- Product Modal -->
+<div class="detail-overlay" id="productOverlay" onclick="if(event.target===this)closeProductModal()">
+  <div class="detail-box">
+    <button class="close-btn" onclick="closeProductModal()">&times;</button>
+    <h2 id="productModalTitle">상품 추가</h2>
+    <div class="modal-form">
+      <input type="hidden" id="prodEditId">
+      <label>상품 ID (Apple/Google 등록 ID)</label>
+      <input type="text" id="prodId" placeholder="saju_ticket_5">
+      <label>상품명</label>
+      <input type="text" id="prodName" placeholder="사주 티켓 5장">
+      <label>티켓 수</label>
+      <input type="number" id="prodTicketCount" placeholder="5">
+      <label>가격 (원)</label>
+      <input type="number" id="prodPrice" placeholder="5900">
+      <label>정렬 순서</label>
+      <input type="number" id="prodSort" placeholder="0">
+      <div class="form-actions">
+        <button class="btn-cancel" onclick="closeProductModal()">취소</button>
+        <button class="btn-save" onclick="saveProduct()">저장</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
 const API = '';
 let token = localStorage.getItem('admin_token');
+let currentTab = 'inquiries';
 
 if (token) { showApp(); loadInquiries(); }
 
@@ -132,6 +226,21 @@ function showApp() {
   document.getElementById('loginView').style.display = 'none';
   document.getElementById('appView').style.display = 'block';
 }
+
+// ── Tab Switching ──
+
+function switchTab(tab, btn) {
+  currentTab = tab;
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+
+  if (tab === 'inquiries') loadInquiries();
+  if (tab === 'products') loadProducts();
+}
+
+// ── Inquiries ──
 
 let currentFilter = 'all';
 
@@ -238,6 +347,135 @@ async function submitReply(id) {
     alert('서버 오류');
   }
 }
+
+// ── Products ──
+
+async function loadProducts() {
+  try {
+    const res = await fetch(`${API}/api/admin/products`, { headers: { Authorization: `Bearer ${token}` } });
+    if (res.status === 401) { logout(); return; }
+    const data = await res.json();
+    renderProducts(data.products || []);
+  } catch (e) {
+    document.getElementById('productBody').innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#999">상품을 불러올 수 없습니다.</td></tr>';
+  }
+}
+
+function renderProducts(items) {
+  const el = document.getElementById('productBody');
+  if (items.length === 0) {
+    el.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#999">등록된 상품이 없습니다.</td></tr>';
+    return;
+  }
+
+  el.innerHTML = items.map(p => `
+    <tr>
+      <td><code style="background:#f3f4f6;padding:2px 6px;border-radius:4px;font-size:12px">${esc(p.product_id)}</code></td>
+      <td>${esc(p.name)}</td>
+      <td>${p.ticket_count}장</td>
+      <td>${Number(p.price_krw).toLocaleString()}원</td>
+      <td>
+        <label class="toggle">
+          <input type="checkbox" ${p.is_active ? 'checked' : ''} onchange="toggleProduct(${p.id}, this.checked)">
+          <span class="slider"></span>
+        </label>
+      </td>
+      <td>${p.sort_order}</td>
+      <td>
+        <button class="btn-edit" onclick='editProduct(${JSON.stringify(p)})'>수정</button>
+        <button class="btn-del" onclick="deleteProduct(${p.id}, '${esc(p.name)}')">삭제</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function openProductModal(product) {
+  document.getElementById('prodEditId').value = product ? product.id : '';
+  document.getElementById('prodId').value = product ? product.product_id : '';
+  document.getElementById('prodId').disabled = !!product;
+  document.getElementById('prodName').value = product ? product.name : '';
+  document.getElementById('prodTicketCount').value = product ? product.ticket_count : '';
+  document.getElementById('prodPrice').value = product ? product.price_krw : '';
+  document.getElementById('prodSort').value = product ? product.sort_order : '0';
+  document.getElementById('productModalTitle').textContent = product ? '상품 수정' : '상품 추가';
+  document.getElementById('productOverlay').classList.add('show');
+}
+
+function closeProductModal() {
+  document.getElementById('productOverlay').classList.remove('show');
+  document.getElementById('prodId').disabled = false;
+}
+
+function editProduct(product) {
+  openProductModal(product);
+}
+
+async function saveProduct() {
+  const editId = document.getElementById('prodEditId').value;
+  const body = {
+    product_id: document.getElementById('prodId').value.trim(),
+    name: document.getElementById('prodName').value.trim(),
+    ticket_count: parseInt(document.getElementById('prodTicketCount').value) || 0,
+    price_krw: parseInt(document.getElementById('prodPrice').value) || 0,
+    sort_order: parseInt(document.getElementById('prodSort').value) || 0,
+  };
+
+  if (!body.product_id || !body.name || !body.ticket_count) {
+    alert('상품 ID, 상품명, 티켓 수는 필수입니다.');
+    return;
+  }
+
+  try {
+    const url = editId ? `${API}/api/admin/products/${editId}` : `${API}/api/admin/products`;
+    const method = editId ? 'PUT' : 'POST';
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      alert(data.error || '저장 실패');
+      return;
+    }
+
+    closeProductModal();
+    loadProducts();
+  } catch (e) {
+    alert('서버 오류');
+  }
+}
+
+async function toggleProduct(id, isActive) {
+  try {
+    await fetch(`${API}/api/admin/products/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ is_active: isActive })
+    });
+  } catch (e) {
+    alert('상태 변경 실패');
+    loadProducts();
+  }
+}
+
+async function deleteProduct(id, name) {
+  if (!confirm(`"${name}" 상품을 삭제하시겠습니까?`)) return;
+
+  try {
+    const res = await fetch(`${API}/api/admin/products/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) { alert('삭제 실패'); return; }
+    loadProducts();
+  } catch (e) {
+    alert('서버 오류');
+  }
+}
+
+// ── Utilities ──
 
 function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 

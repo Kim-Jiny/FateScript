@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import pool from '../config/db.js';
+import { getUserResults } from '../services/fortune.js';
 
 const router = Router();
 
@@ -66,6 +67,19 @@ router.get('/saju', requireAuth, async (req, res) => {
 });
 
 /**
+ * GET /api/user/my-results — 저장된 모든 결과 조회
+ */
+router.get('/my-results', requireAuth, async (req, res) => {
+  try {
+    const results = await getUserResults(req.uid);
+    res.json({ results });
+  } catch (err) {
+    console.error('Get my results error:', err);
+    res.status(500).json({ error: '저장된 결과 조회 중 오류가 발생했습니다.' });
+  }
+});
+
+/**
  * DELETE /api/user/account — 회원탈퇴 (모든 유저 데이터 삭제)
  */
 router.delete('/account', requireAuth, async (req, res) => {
@@ -75,6 +89,7 @@ router.delete('/account', requireAuth, async (req, res) => {
     await pool.query('DELETE FROM ticket_transactions WHERE uid = $1', [uid]);
     await pool.query('DELETE FROM tickets WHERE uid = $1', [uid]);
     await pool.query('DELETE FROM compatibility_history WHERE uid = $1', [uid]);
+    await pool.query('DELETE FROM user_results WHERE uid = $1', [uid]);
     await pool.query('DELETE FROM users WHERE uid = $1', [uid]);
 
     res.json({ ok: true });

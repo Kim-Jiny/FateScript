@@ -1,9 +1,10 @@
 import { Router } from 'express';
-import { analyzeNameFortune, recommendNames } from '../services/fortune.js';
+import { analyzeNameFortune, recommendNames, saveUserResult } from '../services/fortune.js';
+import { optionalAuth } from '../middleware/auth.js';
 
 const router = Router();
 
-router.post('/', async (req, res) => {
+router.post('/', optionalAuth, async (req, res) => {
   try {
     const { mode, name, lastName, birthDate, birthTime, gender } = req.body ?? {};
 
@@ -26,6 +27,20 @@ router.post('/', async (req, res) => {
         return res.status(400).json({ error: '이름 분석 모드에서는 name이 필수입니다.' });
       }
       const result = await analyzeNameFortune({ year, month, day, hour, minute, gender, name });
+
+      if (req.uid) {
+        try {
+          await saveUserResult({
+            uid: req.uid,
+            type: 'name_analyze',
+            params: { name, birthDate, birthTime, gender },
+            result,
+          });
+        } catch (err) {
+          console.error('Failed to save user name analysis result:', err);
+        }
+      }
+
       return res.json(result);
     }
 
@@ -34,6 +49,20 @@ router.post('/', async (req, res) => {
         return res.status(400).json({ error: '이름 추천 모드에서는 lastName이 필수입니다.' });
       }
       const result = await recommendNames({ year, month, day, hour, minute, gender, lastName });
+
+      if (req.uid) {
+        try {
+          await saveUserResult({
+            uid: req.uid,
+            type: 'name_recommend',
+            params: { lastName, birthDate, birthTime, gender },
+            result,
+          });
+        } catch (err) {
+          console.error('Failed to save user name recommend result:', err);
+        }
+      }
+
       return res.json(result);
     }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../models/ticket_product.dart';
 import '../services/api_service.dart';
 import '../services/iap_service.dart';
 
@@ -9,14 +10,17 @@ class TicketProvider extends ChangeNotifier {
   int? _balance;
   bool _isPurchasing = false;
   String? _error;
+  List<TicketProduct> _products = [];
+  bool _productsLoaded = false;
 
   int? get balance => _balance;
   bool get isPurchasing => _isPurchasing;
   String? get error => _error;
   IapService get iapService => _iap;
+  List<TicketProduct> get products => _products;
+  bool get productsLoaded => _productsLoaded;
 
   Future<void> initialize() async {
-    await _iap.initialize();
     _iap.onBalanceUpdated = (balance) {
       _balance = balance;
       _isPurchasing = false;
@@ -27,6 +31,19 @@ class TicketProvider extends ChangeNotifier {
       _isPurchasing = false;
       notifyListeners();
     };
+    await loadProducts();
+    final ids = _products.map((p) => p.productId).toSet();
+    await _iap.initialize(productIds: ids);
+  }
+
+  Future<void> loadProducts() async {
+    try {
+      _products = await _api.getProducts();
+      _productsLoaded = true;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[TicketProvider] loadProducts error: $e');
+    }
   }
 
   Future<void> loadBalance() async {

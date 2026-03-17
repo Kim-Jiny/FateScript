@@ -6,6 +6,7 @@ import '../models/fortune_result.dart';
 import '../models/daily_fortune.dart';
 import '../models/name_analysis_result.dart';
 import '../models/compatibility_result.dart';
+import '../models/ticket_product.dart';
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
@@ -196,7 +197,43 @@ class ApiService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getMyResults() async {
+    final response = await http
+        .get(
+          Uri.parse('$_baseUrl/api/user/my-results'),
+          headers: _headers,
+        )
+        .timeout(_timeout);
+
+    if (response.statusCode != 200) {
+      throw Exception('저장된 결과 조회에 실패했습니다 (${response.statusCode})');
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    final list = json['results'] as List;
+    return list.map((e) => e as Map<String, dynamic>).toList();
+  }
+
   // ── Ticket API ──
+
+  Future<List<TicketProduct>> getProducts() async {
+    final response = await http
+        .get(
+          Uri.parse('$_baseUrl/api/tickets/products'),
+          headers: _headers,
+        )
+        .timeout(_timeout);
+
+    if (response.statusCode != 200) {
+      throw Exception('상품 목록 조회에 실패했습니다 (${response.statusCode})');
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    final list = json['products'] as List;
+    return list
+        .map((e) => TicketProduct.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
 
   Future<int> getTicketBalance() async {
     final response = await http

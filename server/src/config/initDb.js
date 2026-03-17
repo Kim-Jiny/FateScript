@@ -89,6 +89,18 @@ export async function initDb() {
     );
     CREATE INDEX IF NOT EXISTS idx_inquiries_uid ON inquiries(uid);
 
+    CREATE TABLE IF NOT EXISTS user_results (
+      uid        TEXT NOT NULL,
+      type       TEXT NOT NULL,
+      params     JSONB,
+      result     JSONB NOT NULL,
+      year       INT,
+      date       DATE,
+      created_at TIMESTAMPTZ DEFAULT now(),
+      updated_at TIMESTAMPTZ DEFAULT now(),
+      PRIMARY KEY (uid, type)
+    );
+
     CREATE TABLE IF NOT EXISTS admin_accounts (
       id SERIAL PRIMARY KEY,
       username TEXT UNIQUE NOT NULL,
@@ -96,6 +108,24 @@ export async function initDb() {
       created_at TIMESTAMPTZ DEFAULT now()
     );
     INSERT INTO admin_accounts (username, password) VALUES ('jiny', '1204') ON CONFLICT DO NOTHING;
+
+    CREATE TABLE IF NOT EXISTS iap_products (
+      id SERIAL PRIMARY KEY,
+      product_id TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      ticket_count INT NOT NULL,
+      price_krw INT NOT NULL DEFAULT 0,
+      is_active BOOLEAN DEFAULT true,
+      sort_order INT DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT now(),
+      updated_at TIMESTAMPTZ DEFAULT now()
+    );
+    INSERT INTO iap_products (product_id, name, ticket_count, price_krw, sort_order)
+    VALUES
+      ('saju_ticket_3', '사주 티켓 3장', 3, 3900, 1),
+      ('saju_ticket_10', '사주 티켓 10장', 10, 9900, 2),
+      ('saju_ticket_30', '사주 티켓 30장', 30, 24900, 3)
+    ON CONFLICT (product_id) DO NOTHING;
   `);
 
   console.log('DB tables initialized');

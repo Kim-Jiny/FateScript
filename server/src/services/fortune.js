@@ -249,6 +249,42 @@ export async function recommendNames({ year, month, day, hour, minute, gender, l
   return result;
 }
 
+// ── 유저 결과 저장/조회 ────────────────────────────────────
+
+/**
+ * 유저별 결과 저장 (UPSERT)
+ */
+export async function saveUserResult({ uid, type, params, result, year, date }) {
+  await pool.query(
+    `INSERT INTO user_results (uid, type, params, result, year, date, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, now())
+     ON CONFLICT (uid, type) DO UPDATE
+     SET params = $3, result = $4, year = $5, date = $6, updated_at = now()`,
+    [uid, type, JSON.stringify(params ?? {}), JSON.stringify(result), year ?? null, date ?? null],
+  );
+}
+
+/**
+ * 유저의 모든 저장된 결과 조회
+ */
+export async function getUserResults(uid) {
+  const { rows } = await pool.query(
+    `SELECT type, params, result, year,
+            to_char(date, 'YYYY-MM-DD') as date,
+            updated_at
+     FROM user_results WHERE uid = $1`,
+    [uid],
+  );
+  return rows.map((r) => ({
+    type: r.type,
+    params: r.params,
+    result: r.result,
+    year: r.year,
+    date: r.date,
+    updatedAt: r.updated_at,
+  }));
+}
+
 /**
  * 궁합 분석 (DB 캐시: 같은 해 동안 유지)
  */

@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/birth_info_provider.dart';
 import '../providers/ticket_provider.dart';
-import '../models/ticket_product.dart';
 import 'input_screen.dart';
 import 'login_screen.dart';
 
@@ -201,29 +200,42 @@ class MyPageScreen extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 16),
-          Row(
-            children: ticketProducts.map((product) {
-              final storeProduct =
-                  ticketProvider.iapService.products[product.productId];
-              final price = storeProduct?.price ?? '---';
-              return Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    left: product == ticketProducts.first ? 0 : 4,
-                    right: product == ticketProducts.last ? 0 : 4,
-                  ),
-                  child: _purchaseButton(
-                    context,
-                    label: product.label,
-                    price: price,
-                    onTap: ticketProvider.isPurchasing
-                        ? null
-                        : () => ticketProvider.buyProduct(product.productId),
-                  ),
+          if (ticketProvider.products.isEmpty && !ticketProvider.productsLoaded)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(12),
+                child: SizedBox(
+                  width: 20, height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
                 ),
-              );
-            }).toList(),
-          ),
+              ),
+            )
+          else
+            Row(
+              children: ticketProvider.products.map((product) {
+                final storeProduct =
+                    ticketProvider.iapService.products[product.productId];
+                final price = storeProduct?.price ?? '---';
+                final isFirst = product == ticketProvider.products.first;
+                final isLast = product == ticketProvider.products.last;
+                return Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      left: isFirst ? 0 : 4,
+                      right: isLast ? 0 : 4,
+                    ),
+                    child: _purchaseButton(
+                      context,
+                      label: product.label,
+                      price: price,
+                      onTap: ticketProvider.isPurchasing
+                          ? null
+                          : () => ticketProvider.buyProduct(product.productId),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
         ],
       ),
     );

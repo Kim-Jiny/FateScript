@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
-import '../models/ticket_product.dart';
 import 'api_service.dart';
 
 class IapService {
@@ -24,7 +23,7 @@ class IapService {
   Map<String, ProductDetails> get products => _products;
   bool get isAvailable => _available;
 
-  Future<void> initialize() async {
+  Future<void> initialize({Set<String>? productIds}) async {
     try {
       _available = await _iap.isAvailable();
     } catch (e) {
@@ -48,7 +47,8 @@ class IapService {
 
     // 상품 로드
     try {
-      final ids = ticketProducts.map((p) => p.productId).toSet();
+      final ids = productIds ?? <String>{};
+      if (ids.isEmpty) return;
       final response = await _iap.queryProductDetails(ids);
 
       if (response.error != null) {

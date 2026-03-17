@@ -39,6 +39,7 @@ void main() async {
 
   if (authProvider.isLoggedIn) {
     await ticketProvider.loadBalance();
+    await fortuneProvider.loadFromServer(birthInfoProvider.birthInfo);
   }
 
   birthInfoProvider.onBirthInfoChanged = () {

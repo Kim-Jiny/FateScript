@@ -40,6 +40,61 @@ class FortuneProvider extends ChangeNotifier {
   /// 하위 호환용 alias
   Future<void> loadSavedFortune() => loadSavedData();
 
+  /// 서버에서 유저가 이전에 요청한 결과들을 불러와서 로컬 캐시에 저장
+  /// 현재 사주 정보와 일치하는 결과만 복원
+  Future<void> loadFromServer(BirthInfo? currentBirthInfo) async {
+    if (currentBirthInfo == null) return;
+
+    try {
+      final results = await _api.getMyResults();
+      final now = DateTime.now();
+
+      for (final item in results) {
+        final type = item['type'] as String;
+        final result = item['result'] as Map<String, dynamic>;
+        final params = item['params'] as Map<String, dynamic>?;
+
+        // params의 사주 정보가 현재 사주와 일치하는지 확인
+        if (params != null && !_matchesBirthInfo(params, currentBirthInfo)) {
+          continue;
+        }
+
+        if (type == 'fortune') {
+          final year = item['year'] as int?;
+          if (year != null && year == now.year && _fortuneResult == null) {
+            _fortuneResult = FortuneResult.fromJson(result);
+            await _storage.saveFortuneResult(_fortuneResult!);
+          }
+        } else if (type == 'daily') {
+          final dateStr = item['date'] as String?;
+          final todayStr =
+              '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+          if (dateStr == todayStr && _dailyFortune == null) {
+            _dailyFortune = DailyFortune.fromJson(result);
+            await _storage.saveDailyFortune(_dailyFortune!);
+          }
+        } else if (type == 'name_analyze') {
+          if (_nameAnalysisResult == null) {
+            _nameAnalysisResult = NameAnalysisResult.fromJson(result);
+          }
+        } else if (type == 'name_recommend') {
+          if (_nameRecommendResult == null) {
+            _nameRecommendResult = NameRecommendResult.fromJson(result);
+          }
+        }
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Failed to load results from server: $e');
+    }
+  }
+
+  bool _matchesBirthInfo(Map<String, dynamic> params, BirthInfo info) {
+    return params['birthDate'] == info.birthDate &&
+        params['birthTime'] == (info.birthTime ?? 'unknown') &&
+        params['gender'] == info.gender;
+  }
+
   Future<void> clearSavedFortune() async {
     _fortuneResult = null;
     await _storage.clearFortuneResult();

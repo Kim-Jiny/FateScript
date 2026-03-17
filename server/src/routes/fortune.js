@@ -1,9 +1,10 @@
 import { Router } from 'express';
-import { interpretFortune } from '../services/fortune.js';
+import { interpretFortune, saveUserResult } from '../services/fortune.js';
+import { optionalAuth } from '../middleware/auth.js';
 
 const router = Router();
 
-router.post('/', async (req, res) => {
+router.post('/', optionalAuth, async (req, res) => {
   try {
     const { birthDate, birthTime, gender } = req.body ?? {};
 
@@ -22,6 +23,22 @@ router.post('/', async (req, res) => {
     }
 
     const result = await interpretFortune({ year, month, day, hour, minute, gender });
+
+    // 로그인한 유저면 결과 저장
+    if (req.uid) {
+      try {
+        await saveUserResult({
+          uid: req.uid,
+          type: 'fortune',
+          params: { birthDate, birthTime, gender },
+          result,
+          year: new Date().getFullYear(),
+        });
+      } catch (err) {
+        console.error('Failed to save user fortune result:', err);
+      }
+    }
+
     res.json(result);
   } catch (err) {
     console.error('Fortune error:', err);

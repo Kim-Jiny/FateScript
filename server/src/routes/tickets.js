@@ -59,9 +59,17 @@ router.get('/history', requireAuth, async (req, res) => {
 });
 
 /**
- * POST /api/tickets/consume — 티켓 1장 소모
- * body: { type } — fortune type (daily, fortune, name, compatibility)
+ * POST /api/tickets/consume — 서비스별 티켓 소모
+ * body: { type } — fortune type (daily, fortune, name_analyze, name_recommend, compatibility)
  */
+const TICKET_COST = {
+  daily: 1,
+  fortune: 3,
+  name_analyze: 1,
+  name_recommend: 2,
+  compatibility: 2,
+};
+
 router.post('/consume', requireAuth, async (req, res) => {
   const client = await pool.connect();
   try {
@@ -69,6 +77,8 @@ router.post('/consume', requireAuth, async (req, res) => {
     if (!type) {
       return res.status(400).json({ error: 'type은 필수입니다.' });
     }
+
+    const cost = TICKET_COST[type] ?? 1;
 
     await client.query('BEGIN');
 
@@ -79,12 +89,12 @@ router.post('/consume', requireAuth, async (req, res) => {
 
     const currentBalance = rows.length > 0 ? rows[0].balance : 0;
 
-    if (currentBalance < 1) {
+    if (currentBalance < cost) {
       await client.query('ROLLBACK');
-      return res.status(402).json({ error: '티켓이 부족합니다.', balance: 0 });
+      return res.status(402).json({ error: '티켓이 부족합니다.', balance: currentBalance, required: cost });
     }
 
-    const newBalance = currentBalance - 1;
+    const newBalance = currentBalance - cost;
 
     await client.query(
       `UPDATE tickets SET balance = $1, updated_at = now() WHERE uid = $2`,
@@ -93,8 +103,8 @@ router.post('/consume', requireAuth, async (req, res) => {
 
     await client.query(
       `INSERT INTO ticket_transactions (uid, type, amount, balance_after, ref_id)
-       VALUES ($1, 'consume', -1, $2, $3)`,
-      [req.uid, newBalance, type],
+       VALUES ($1, 'consume', $2, $3, $4)`,
+      [req.uid, -cost, newBalance, type],
     );
 
     await client.query('COMMIT');

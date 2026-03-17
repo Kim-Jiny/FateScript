@@ -110,7 +110,7 @@ class _FortuneScreenState extends State<FortuneScreen> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('티켓 부족'),
-        content: const Text('사주 티켓이 부족합니다.\n마이페이지에서 티켓을 구매해 주세요.'),
+        content: const Text('티켓이 부족합니다. (필요: 3장)\n마이페이지에서 티켓을 구매해 주세요.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -145,7 +145,7 @@ class _FortuneScreenState extends State<FortuneScreen> {
                 _fetchWithTicket(context, birthProvider, fortuneProvider),
             style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF8A4FFF)),
-            child: const Text('사주 분석 시작'),
+            child: const Text('사주 분석 시작 (3티켓)'),
           ),
         ],
       ),

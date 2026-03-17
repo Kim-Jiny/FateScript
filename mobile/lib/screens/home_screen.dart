@@ -340,7 +340,7 @@ class _MyPageContent extends StatelessWidget {
               const SizedBox(height: 6),
               Row(
                 children: [
-                  const Text('운세를 볼 때마다 티켓 1장이 소모됩니다.',
+                  const Text('서비스별 티켓이 차등 소모됩니다.',
                       style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF))),
                   const Spacer(),
                   GestureDetector(

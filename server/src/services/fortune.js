@@ -26,7 +26,7 @@ async function askGeminiJson(userPrompt, systemPrompt, retries = 2) {
       contents: userPrompt,
       config: {
         systemInstruction: systemPrompt,
-        maxOutputTokens: 8192,
+        maxOutputTokens: 16384,
         temperature: 0.8,
         responseMimeType: 'application/json',
       },

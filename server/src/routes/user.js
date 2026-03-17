@@ -28,10 +28,19 @@ router.post('/saju', requireAuth, async (req, res) => {
     console.log(`[user/saju] DB result: rowCount=${result.rowCount}`);
 
     // 신규 유저에게 무료 티켓 3장 지급
-    await pool.query(
-      `INSERT INTO tickets (uid, balance) VALUES ($1, 3) ON CONFLICT DO NOTHING`,
+    const ticketResult = await pool.query(
+      `INSERT INTO tickets (uid, balance) VALUES ($1, 3) ON CONFLICT DO NOTHING RETURNING balance`,
       [req.uid],
     );
+
+    // 신규 지급된 경우 거래 내역 기록
+    if (ticketResult.rowCount > 0) {
+      await pool.query(
+        `INSERT INTO ticket_transactions (uid, type, amount, balance_after, ref_id)
+         VALUES ($1, 'signup_bonus', 3, 3, 'signup')`,
+        [req.uid],
+      );
+    }
 
     res.json({ ok: true });
   } catch (err) {

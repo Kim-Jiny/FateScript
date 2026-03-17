@@ -73,6 +73,10 @@ export async function initDb() {
     );
 
     CREATE INDEX IF NOT EXISTS idx_ticket_txn_uid ON ticket_transactions(uid);
+    CREATE INDEX IF NOT EXISTS idx_ticket_txn_created_at ON ticket_transactions(created_at);
+    CREATE INDEX IF NOT EXISTS idx_ticket_txn_type ON ticket_transactions(type);
+
+    CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);
 
     CREATE TABLE IF NOT EXISTS inquiries (
       id SERIAL PRIMARY KEY,

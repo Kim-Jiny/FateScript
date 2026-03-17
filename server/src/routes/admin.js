@@ -123,6 +123,163 @@ router.put('/inquiries/:id', adminAuth, async (req, res) => {
   }
 });
 
+// ── Dashboard Stats ──
+
+// GET /api/admin/stats — 대시보드 통계
+router.get('/stats', adminAuth, async (req, res) => {
+  try {
+    const [totalUsers, todayUsers, purchases, todayConsumption, activeUsers, serviceUsage] = await Promise.all([
+      pool.query('SELECT COUNT(*) AS count FROM users'),
+      pool.query("SELECT COUNT(*) AS count FROM users WHERE created_at >= CURRENT_DATE"),
+      pool.query("SELECT COUNT(*) AS count, COALESCE(SUM(amount), 0) AS total_tickets FROM ticket_transactions WHERE type = 'purchase'"),
+      pool.query("SELECT COUNT(*) AS count FROM ticket_transactions WHERE amount < 0 AND created_at >= CURRENT_DATE"),
+      pool.query(`
+        SELECT COUNT(DISTINCT uid) AS count FROM (
+          SELECT uid FROM ticket_transactions WHERE created_at >= NOW() - INTERVAL '7 days'
+          UNION
+          SELECT uid FROM user_results WHERE created_at >= NOW() - INTERVAL '7 days'
+        ) AS active
+      `),
+      pool.query(`
+        SELECT ref_id, COUNT(*) AS count, COALESCE(SUM(ABS(amount)), 0) AS total_tickets
+        FROM ticket_transactions
+        WHERE amount < 0
+        GROUP BY ref_id
+        ORDER BY count DESC
+      `),
+    ]);
+
+    res.json({
+      totalUsers: parseInt(totalUsers.rows[0].count),
+      todayUsers: parseInt(todayUsers.rows[0].count),
+      purchaseCount: parseInt(purchases.rows[0].count),
+      purchaseTickets: parseInt(purchases.rows[0].total_tickets),
+      todayConsumption: parseInt(todayConsumption.rows[0].count),
+      activeUsers7d: parseInt(activeUsers.rows[0].count),
+      serviceUsage: serviceUsage.rows,
+    });
+  } catch (error) {
+    console.error('Get stats error:', error);
+    res.status(500).json({ error: 'Failed to get stats' });
+  }
+});
+
+// ── User Management ──
+
+// GET /api/admin/users — 유저 목록
+router.get('/users', adminAuth, async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const offset = (page - 1) * limit;
+    const search = req.query.search?.trim();
+
+    let whereClause = '';
+    const params = [];
+
+    if (search) {
+      whereClause = 'WHERE u.email ILIKE $1 OR u.uid ILIKE $1';
+      params.push(`%${search}%`);
+    }
+
+    const countQuery = `SELECT COUNT(*) AS count FROM users u ${whereClause}`;
+    const dataQuery = `
+      SELECT u.uid, u.email, u.birth_date, u.gender, u.created_at,
+             COALESCE(t.balance, 0) AS balance
+      FROM users u
+      LEFT JOIN tickets t ON t.uid = u.uid
+      ${whereClause}
+      ORDER BY u.created_at DESC
+      LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+    `;
+
+    const [countResult, dataResult] = await Promise.all([
+      pool.query(countQuery, params),
+      pool.query(dataQuery, [...params, limit, offset]),
+    ]);
+
+    const total = parseInt(countResult.rows[0].count);
+
+    res.json({
+      users: dataResult.rows,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
+  } catch (error) {
+    console.error('Get users error:', error);
+    res.status(500).json({ error: 'Failed to get users' });
+  }
+});
+
+// GET /api/admin/users/:uid — 유저 상세
+router.get('/users/:uid', adminAuth, async (req, res) => {
+  try {
+    const { uid } = req.params;
+
+    const [userResult, balanceResult, txResult, resultsCount, compatCount] = await Promise.all([
+      pool.query('SELECT * FROM users WHERE uid = $1', [uid]),
+      pool.query('SELECT balance FROM tickets WHERE uid = $1', [uid]),
+      pool.query('SELECT * FROM ticket_transactions WHERE uid = $1 ORDER BY created_at DESC LIMIT 50', [uid]),
+      pool.query('SELECT COUNT(*) AS count FROM user_results WHERE uid = $1', [uid]),
+      pool.query('SELECT COUNT(*) AS count FROM compatibility_history WHERE uid = $1', [uid]),
+    ]);
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({
+      user: userResult.rows[0],
+      balance: balanceResult.rows[0]?.balance ?? 0,
+      transactions: txResult.rows,
+      resultsCount: parseInt(resultsCount.rows[0].count),
+      compatibilityCount: parseInt(compatCount.rows[0].count),
+    });
+  } catch (error) {
+    console.error('Get user detail error:', error);
+    res.status(500).json({ error: 'Failed to get user detail' });
+  }
+});
+
+// POST /api/admin/users/:uid/grant-tickets — 티켓 지급
+router.post('/users/:uid/grant-tickets', adminAuth, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { uid } = req.params;
+    const { amount } = req.body;
+
+    if (!amount || !Number.isInteger(amount) || amount <= 0) {
+      return res.status(400).json({ error: 'amount must be a positive integer' });
+    }
+
+    await client.query('BEGIN');
+
+    await client.query(
+      `INSERT INTO tickets (uid, balance, updated_at) VALUES ($1, $2, now())
+       ON CONFLICT (uid) DO UPDATE SET balance = tickets.balance + $2, updated_at = now()`,
+      [uid, amount]
+    );
+
+    const balResult = await client.query('SELECT balance FROM tickets WHERE uid = $1', [uid]);
+    const balanceAfter = balResult.rows[0].balance;
+
+    await client.query(
+      `INSERT INTO ticket_transactions (uid, type, amount, balance_after, ref_id, created_at)
+       VALUES ($1, 'admin_grant', $2, $3, $4, now())`,
+      [uid, amount, balanceAfter, `admin:${req.admin.username}`]
+    );
+
+    await client.query('COMMIT');
+
+    res.json({ success: true, balance: balanceAfter });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Grant tickets error:', error);
+    res.status(500).json({ error: 'Failed to grant tickets' });
+  } finally {
+    client.release();
+  }
+});
+
 // ── IAP Products CRUD ──
 
 // GET /api/admin/products — 전체 상품 목록

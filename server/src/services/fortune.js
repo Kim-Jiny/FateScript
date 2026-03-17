@@ -19,18 +19,23 @@ async function askGemini(userPrompt, systemPrompt) {
   return response.text;
 }
 
-async function askGeminiJson(userPrompt, systemPrompt) {
-  const response = await ai.models.generateContent({
-    model: MODEL,
-    contents: userPrompt,
-    config: {
-      systemInstruction: systemPrompt,
-      maxOutputTokens: 8192,
-      temperature: 0.8,
-      responseMimeType: 'application/json',
-    },
-  });
-  return response.text;
+async function askGeminiJson(userPrompt, systemPrompt, retries = 2) {
+  for (let i = 0; i <= retries; i++) {
+    const response = await ai.models.generateContent({
+      model: MODEL,
+      contents: userPrompt,
+      config: {
+        systemInstruction: systemPrompt,
+        maxOutputTokens: 8192,
+        temperature: 0.8,
+        responseMimeType: 'application/json',
+      },
+    });
+    const text = response.text;
+    if (text && text.trim().length > 0) return text;
+    console.warn(`[askGeminiJson] Empty response, retry ${i + 1}/${retries}`);
+  }
+  throw new Error('Gemini returned empty response after retries');
 }
 
 // ── 카테고리 매핑 ──────────────────────────────────
@@ -195,7 +200,11 @@ export async function analyzeNameFortune({ year, month, day, hour, minute, gende
   const prompt = buildNameAnalysisPrompt(sajuInfo, name, gender);
   const rawText = await askGeminiJson(prompt, getSystemPrompt('year'));
 
-  const result = extractJson(rawText) ?? JSON.parse(rawText);
+  const result = extractJson(rawText);
+  if (!result) {
+    console.error('[analyzeNameFortune] Gemini invalid JSON:', rawText?.slice?.(0, 500));
+    throw new Error('이름 분석 응답을 파싱할 수 없습니다.');
+  }
 
   await pool.query(
     'INSERT INTO name_analysis_cache (cache_key, result) VALUES ($1, $2) ON CONFLICT (cache_key) DO NOTHING',
@@ -225,7 +234,11 @@ export async function recommendNames({ year, month, day, hour, minute, gender, l
   const prompt = buildNameRecommendPrompt(sajuInfo, lastName, gender);
   const rawText = await askGeminiJson(prompt, getSystemPrompt('year'));
 
-  const result = extractJson(rawText) ?? JSON.parse(rawText);
+  const result = extractJson(rawText);
+  if (!result) {
+    console.error('[recommendNames] Gemini invalid JSON:', rawText?.slice?.(0, 500));
+    throw new Error('이름 추천 응답을 파싱할 수 없습니다.');
+  }
 
   await pool.query(
     'INSERT INTO name_analysis_cache (cache_key, result) VALUES ($1, $2) ON CONFLICT (cache_key) DO NOTHING',

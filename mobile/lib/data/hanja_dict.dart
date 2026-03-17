@@ -73,6 +73,15 @@ const Map<String, List<HanjaEntry>> hanjaDict = {
     HanjaEntry('球', '공', 11),
     HanjaEntry('具', '갖출', 8),
   ],
+  '규': [
+    HanjaEntry('奎', '별', 9),
+    HanjaEntry('圭', '홀', 6),
+    HanjaEntry('揆', '헤아릴', 12),
+    HanjaEntry('規', '법', 11),
+    HanjaEntry('珪', '옥홀', 10),
+    HanjaEntry('葵', '해바라기', 12),
+    HanjaEntry('糾', '모을', 8),
+  ],
   '국': [
     HanjaEntry('國', '나라', 11),
     HanjaEntry('菊', '국화', 11),

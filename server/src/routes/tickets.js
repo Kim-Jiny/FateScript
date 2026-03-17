@@ -21,6 +21,26 @@ router.get('/balance', requireAuth, async (req, res) => {
 });
 
 /**
+ * GET /api/tickets/history — 티켓 사용 내역 (최신순 50건)
+ */
+router.get('/history', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, type, amount, balance_after, ref_id, created_at
+       FROM ticket_transactions
+       WHERE uid = $1
+       ORDER BY created_at DESC
+       LIMIT 50`,
+      [req.uid],
+    );
+    res.json({ history: rows });
+  } catch (err) {
+    console.error('Get ticket history error:', err);
+    res.status(500).json({ error: '티켓 내역 조회 중 오류가 발생했습니다.' });
+  }
+});
+
+/**
  * POST /api/tickets/consume — 티켓 1장 소모
  * body: { type } — fortune type (daily, fortune, name, compatibility)
  */

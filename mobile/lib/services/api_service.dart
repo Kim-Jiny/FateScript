@@ -259,6 +259,23 @@ class ApiService {
     return json['balance'] as int;
   }
 
+  Future<List<Map<String, dynamic>>> getTicketHistory() async {
+    final response = await http
+        .get(
+          Uri.parse('$_baseUrl/api/tickets/history'),
+          headers: _headers,
+        )
+        .timeout(_timeout);
+
+    if (response.statusCode != 200) {
+      throw Exception('티켓 내역 조회에 실패했습니다 (${response.statusCode})');
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    final list = json['history'] as List;
+    return list.map((e) => e as Map<String, dynamic>).toList();
+  }
+
   // ── Inquiry API ──
 
   Future<Map<String, dynamic>> createInquiry({

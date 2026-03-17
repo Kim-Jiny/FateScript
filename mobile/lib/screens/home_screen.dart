@@ -7,6 +7,7 @@ import '../models/ticket_product.dart';
 import 'input_screen.dart';
 import 'inquiry_screen.dart';
 import 'login_screen.dart';
+import 'ticket_history_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -338,8 +339,25 @@ class _MyPageContent extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 6),
-              const Text('운세를 볼 때마다 티켓 1장이 소모됩니다.',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF))),
+              Row(
+                children: [
+                  const Text('운세를 볼 때마다 티켓 1장이 소모됩니다.',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF))),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => const TicketHistoryScreen()));
+                    },
+                    child: const Text('사용 내역',
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF8A4FFF))),
+                  ),
+                ],
+              ),
               if (ticketProvider.error != null) ...[
                 const SizedBox(height: 8),
                 Text(ticketProvider.error!,

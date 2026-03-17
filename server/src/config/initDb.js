@@ -124,12 +124,6 @@ export async function initDb() {
       created_at TIMESTAMPTZ DEFAULT now(),
       updated_at TIMESTAMPTZ DEFAULT now()
     );
-    INSERT INTO iap_products (product_id, name, ticket_count, price_krw, sort_order)
-    VALUES
-      ('saju_ticket_3', '사주 티켓 3장', 3, 3900, 1),
-      ('saju_ticket_10', '사주 티켓 10장', 10, 9900, 2),
-      ('saju_ticket_30', '사주 티켓 30장', 30, 24900, 3)
-    ON CONFLICT (product_id) DO NOTHING;
   `);
 
   console.log('DB tables initialized');

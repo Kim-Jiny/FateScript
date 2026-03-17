@@ -19,8 +19,8 @@ class AppBottomNav extends StatelessWidget {
       indicatorColor: const Color(0xFF8A4FFF).withValues(alpha: 0.12),
       destinations: const [
         NavigationDestination(
-          icon: Icon(Icons.person_outline),
-          selectedIcon: Icon(Icons.person, color: Color(0xFF8A4FFF)),
+          icon: Icon(Icons.home_outlined),
+          selectedIcon: Icon(Icons.home, color: Color(0xFF8A4FFF)),
           label: '홈',
         ),
         NavigationDestination(

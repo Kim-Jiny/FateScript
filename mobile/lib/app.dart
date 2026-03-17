@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'screens/my_page_screen.dart';
+import 'screens/home_screen.dart';
 import 'screens/daily_screen.dart';
 import 'screens/name_screen.dart';
 import 'screens/fortune_screen.dart';
@@ -77,7 +77,7 @@ class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
 
   static const _screens = [
-    MyPageScreen(),
+    HomeScreen(),
     DailyScreen(),
     NameScreen(),
     FortuneScreen(),

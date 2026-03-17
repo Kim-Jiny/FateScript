@@ -21,7 +21,7 @@ class AppBottomNav extends StatelessWidget {
         NavigationDestination(
           icon: Icon(Icons.person_outline),
           selectedIcon: Icon(Icons.person, color: Color(0xFF8A4FFF)),
-          label: '마이페이지',
+          label: '홈',
         ),
         NavigationDestination(
           icon: Icon(Icons.auto_awesome_outlined),

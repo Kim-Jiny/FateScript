@@ -25,7 +25,14 @@ class IapService {
   bool get isAvailable => _available;
 
   Future<void> initialize() async {
-    _available = await _iap.isAvailable();
+    try {
+      _available = await _iap.isAvailable();
+    } catch (e) {
+      debugPrint('[IAP] isAvailable() failed: $e');
+      _available = false;
+      return;
+    }
+
     if (!_available) {
       debugPrint('[IAP] Store not available');
       return;
@@ -40,18 +47,22 @@ class IapService {
     );
 
     // 상품 로드
-    final ids = ticketProducts.map((p) => p.productId).toSet();
-    final response = await _iap.queryProductDetails(ids);
+    try {
+      final ids = ticketProducts.map((p) => p.productId).toSet();
+      final response = await _iap.queryProductDetails(ids);
 
-    if (response.error != null) {
-      debugPrint('[IAP] Query products error: ${response.error}');
+      if (response.error != null) {
+        debugPrint('[IAP] Query products error: ${response.error}');
+      }
+
+      _products = {
+        for (final p in response.productDetails) p.id: p,
+      };
+
+      debugPrint('[IAP] Loaded ${_products.length} products: ${_products.keys.join(', ')}');
+    } catch (e) {
+      debugPrint('[IAP] Product query failed: $e');
     }
-
-    _products = {
-      for (final p in response.productDetails) p.id: p,
-    };
-
-    debugPrint('[IAP] Loaded ${_products.length} products: ${_products.keys.join(', ')}');
   }
 
   Future<bool> buyProduct(String productId) async {

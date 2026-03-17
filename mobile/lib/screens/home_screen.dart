@@ -5,6 +5,7 @@ import '../providers/birth_info_provider.dart';
 import '../providers/ticket_provider.dart';
 import '../models/ticket_product.dart';
 import 'input_screen.dart';
+import 'inquiry_screen.dart';
 import 'login_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -487,8 +488,12 @@ class _MyPageContent extends StatelessWidget {
                 icon: Icons.mail_outline,
                 iconColor: const Color(0xFF6B7280),
                 title: '문의하기',
-                subtitle: 'kjinyz@naver.com',
-                onTap: () {},
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const InquiryScreen()),
+                  );
+                },
               ),
             ],
           ),

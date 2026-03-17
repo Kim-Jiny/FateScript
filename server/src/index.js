@@ -1,6 +1,8 @@
 import 'dotenv/config';
 import cors from 'cors';
 import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 import { initDb } from './config/initDb.js';
 import fortuneRoutes from './routes/fortune.js';
@@ -9,6 +11,10 @@ import nameAnalysisRoutes from './routes/name-analysis.js';
 import compatibilityRoutes from './routes/compatibility.js';
 import userRoutes from './routes/user.js';
 import ticketRoutes from './routes/tickets.js';
+import inquiryRoutes from './routes/inquiry.js';
+import adminRoutes from './routes/admin.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 const port = Number(process.env.PORT ?? 3000);
@@ -30,6 +36,10 @@ app.use('/api/name-analysis', nameAnalysisRoutes);
 app.use('/api/compatibility', compatibilityRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/tickets', ticketRoutes);
+app.use('/api/inquiry', inquiryRoutes);
+app.use('/api/admin', adminRoutes);
+
+app.use(express.static(path.join(__dirname, '..', 'public')));
 
 await initDb();
 

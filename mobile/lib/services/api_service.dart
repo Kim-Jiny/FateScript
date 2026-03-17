@@ -259,6 +259,74 @@ class ApiService {
     return json['balance'] as int;
   }
 
+  // ── Inquiry API ──
+
+  Future<Map<String, dynamic>> createInquiry({
+    required String category,
+    required String title,
+    required String content,
+  }) async {
+    final response = await http
+        .post(
+          Uri.parse('$_baseUrl/api/inquiry'),
+          headers: _headers,
+          body: jsonEncode({
+            'category': category,
+            'title': title,
+            'content': content,
+          }),
+        )
+        .timeout(_timeout);
+
+    if (response.statusCode != 200) {
+      throw Exception('문의 등록에 실패했습니다 (${response.statusCode})');
+    }
+
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  Future<List<Map<String, dynamic>>> getInquiries() async {
+    final response = await http
+        .get(
+          Uri.parse('$_baseUrl/api/inquiry'),
+          headers: _headers,
+        )
+        .timeout(_timeout);
+
+    if (response.statusCode != 200) {
+      throw Exception('문의 목록 조회에 실패했습니다 (${response.statusCode})');
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    final list = json['inquiries'] as List;
+    return list.map((e) => e as Map<String, dynamic>).toList();
+  }
+
+  Future<int> getUnreadInquiryCount() async {
+    final response = await http
+        .get(
+          Uri.parse('$_baseUrl/api/inquiry/unread-count'),
+          headers: _headers,
+        )
+        .timeout(_timeout);
+
+    if (response.statusCode != 200) {
+      return 0;
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return json['count'] as int;
+  }
+
+  Future<void> markInquiryRead(int id) async {
+    await http
+        .put(
+          Uri.parse('$_baseUrl/api/inquiry/$id/read'),
+          headers: _headers,
+        )
+        .timeout(_timeout);
+  }
+
   // ── Compatibility History API ──
 
   Future<List<Map<String, dynamic>>> getCompatibilityHistory() async {

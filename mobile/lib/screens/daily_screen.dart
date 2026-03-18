@@ -134,10 +134,7 @@ class DailyScreen extends StatelessWidget {
   }
 
   Widget _resultView(BuildContext context, daily, FortuneProvider fortuneProvider, BirthInfoProvider birthProvider) {
-    return RefreshIndicator(
-      onRefresh: () => _fetchWithTicket(context, birthProvider, fortuneProvider),
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
+    return SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -210,7 +207,6 @@ class DailyScreen extends StatelessWidget {
             const SizedBox(height: 40),
           ],
         ),
-      ),
     );
   }
 }

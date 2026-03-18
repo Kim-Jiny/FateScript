@@ -161,10 +161,7 @@ class _FortuneScreenState extends State<FortuneScreen> {
     final manseryeokContent =
         result.manseryeok.isNotEmpty ? result.manseryeok : result.interpretation;
 
-    return RefreshIndicator(
-      onRefresh: () => _fetchWithTicket(context, birthProvider, fortuneProvider),
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
+    return SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -283,7 +280,6 @@ class _FortuneScreenState extends State<FortuneScreen> {
             const SizedBox(height: 40),
           ],
         ),
-      ),
     );
   }
 

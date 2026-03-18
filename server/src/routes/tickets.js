@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import pool from '../config/db.js';
+import { verifyPurchaseReceipt } from '../services/iap-verify.js';
 
 const router = Router();
 
@@ -145,6 +146,14 @@ router.post('/verify-purchase', requireAuth, async (req, res) => {
       return res.json({ balance: rows[0]?.balance ?? 0, duplicate: true });
     }
 
+    // 스토어 영수증 검증 (Apple/Google)
+    try {
+      await verifyPurchaseReceipt(platform, productId, purchaseToken);
+    } catch (verifyErr) {
+      console.error(`[IAP] Receipt verification failed (${platform}):`, verifyErr.message);
+      return res.status(403).json({ error: '영수증 검증에 실패했습니다.', detail: verifyErr.message });
+    }
+
     // 상품 ID → 티켓 수 DB 조회
     const { rows: productRows } = await pool.query(
       'SELECT ticket_count FROM iap_products WHERE product_id = $1',
@@ -154,9 +163,6 @@ router.post('/verify-purchase', requireAuth, async (req, res) => {
       return res.status(400).json({ error: '알 수 없는 상품 ID입니다.' });
     }
     const ticketCount = productRows[0].ticket_count;
-
-    // TODO: 실제 스토어 영수증 검증 (Apple/Google) 추가
-    // 현재는 클라이언트 신뢰 기반으로 처리
 
     await client.query('BEGIN');
 
@@ -204,7 +210,7 @@ router.post('/restore-purchases', requireAuth, async (req, res) => {
 
     let restoredCount = 0;
     for (const p of purchases) {
-      const { productId, purchaseToken } = p;
+      const { productId, purchaseToken, platform } = p;
       if (!productId || !purchaseToken) continue;
 
       // 이미 처리된 것은 스킵
@@ -213,6 +219,14 @@ router.post('/restore-purchases', requireAuth, async (req, res) => {
         [purchaseToken],
       );
       if (existing.length > 0) continue;
+
+      // 영수증 검증
+      try {
+        await verifyPurchaseReceipt(platform || 'ios', productId, purchaseToken);
+      } catch (verifyErr) {
+        console.warn(`[IAP] Restore verification failed for ${productId}:`, verifyErr.message);
+        continue;
+      }
 
       const { rows: productRows } = await pool.query(
         'SELECT ticket_count FROM iap_products WHERE product_id = $1',

@@ -27,43 +27,62 @@ app.use(express.json({ limit: '5mb' }));
 
 // ── 공유 페이지 렌더 ──
 function renderSharePage(type, data, row, shareId) {
-  const css = `*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#F6EFE5;min-height:100vh;padding:20px}
-.wrap{max-width:480px;margin:0 auto}
-.header{text-align:center;padding:24px 0 16px}
-.header h1{font-size:20px;color:#1F2937;margin-bottom:4px}
-.badge{display:inline-block;background:rgba(138,79,255,.1);color:#8A4FFF;font-size:11px;font-weight:600;padding:4px 12px;border-radius:20px;margin-top:8px}
-.card{background:#fff;border-radius:16px;padding:20px;margin-bottom:16px;border:1px solid #E5E7EB}
-.card h2{font-size:15px;font-weight:700;color:#1F2937;margin-bottom:12px}
-.card h3{font-size:14px;font-weight:700;color:#374151;margin-bottom:8px}
-.card p,.card li{font-size:13px;line-height:1.7;color:#374151}
-.pillar-row{display:flex;gap:8px;margin-bottom:16px}
-.pillar{flex:1;background:#F9FAFB;border-radius:12px;padding:12px 8px;text-align:center;border:1px solid #E5E7EB}
-.pillar .label{font-size:10px;font-weight:600;color:#8A4FFF;margin-bottom:6px}
-.pillar .hanja{font-size:22px;font-weight:700;color:#1F2937}
-.pillar .hangul{font-size:11px;color:#6B7280;margin-top:2px}
-.compat-btn{display:block;width:100%;padding:16px;background:#8A4FFF;color:#fff;text-align:center;border-radius:14px;font-size:15px;font-weight:700;text-decoration:none;margin:16px 0}
-.footer{text-align:center;padding:24px 0}
-.footer a{display:inline-block;padding:12px 24px;background:#8A4FFF;color:#fff;border-radius:12px;text-decoration:none;font-size:14px;font-weight:600}
-.markdown-content h1{font-size:16px;font-weight:700;color:#1F2937;margin:16px 0 8px}
-.markdown-content h2{font-size:15px;font-weight:700;color:#1F2937;margin:14px 0 8px}
-.markdown-content h3{font-size:14px;font-weight:700;color:#374151;margin:12px 0 6px}
-.markdown-content p{font-size:13px;line-height:1.7;color:#374151;margin-bottom:8px}
-.markdown-content ul,.markdown-content ol{padding-left:20px;margin-bottom:8px}
-.markdown-content li{font-size:13px;line-height:1.7;color:#374151}
-.rec-card{background:#F9FAFB;border-radius:12px;padding:14px;margin-bottom:12px}
-.rec-card .name{font-size:16px;font-weight:700}
-.rec-card .hanja{font-size:13px;color:#6B7280}
-.rec-card .score{background:rgba(138,79,255,.1);color:#8A4FFF;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;float:right}
-.rec-card .meaning{font-size:12px;color:#374151;line-height:1.5;margin-top:6px;clear:both}
-.iljin-bar{background:linear-gradient(to right,#111827,#312E81);border-radius:14px;padding:12px 16px;color:#fff;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
-.iljin-bar .label{font-size:12px;color:rgba(255,255,255,.7)}
-.iljin-bar .value{font-size:15px;font-weight:700}
-.char-card{background:#F9FAFB;border-radius:10px;padding:12px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
-.char-card .ch{font-size:20px;font-weight:700}
-.char-card .hanja-text{font-size:14px;color:#6B7280}
-.tag{display:inline-block;background:rgba(138,79,255,.1);color:#8A4FFF;font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;margin-left:4px}
-.score-badge{background:rgba(138,79,255,.1);color:#8A4FFF;font-size:14px;font-weight:700;padding:4px 12px;border-radius:20px}`;
+  const css = `@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Noto Sans KR',sans-serif;background:#0f0a1e;min-height:100vh;color:#e2d8f0;overflow-x:hidden}
+body::before{content:'';position:fixed;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(circle at 30% 20%,rgba(138,79,255,.12) 0%,transparent 50%),radial-gradient(circle at 70% 80%,rgba(99,102,241,.08) 0%,transparent 50%);pointer-events:none;z-index:0}
+.wrap{max-width:520px;margin:0 auto;padding:0 20px 40px;position:relative;z-index:1}
+.hero{text-align:center;padding:48px 0 32px;position:relative}
+.hero::after{content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:60px;height:3px;background:linear-gradient(90deg,#8A4FFF,#c084fc);border-radius:2px}
+.hero .icon{font-size:48px;margin-bottom:16px;display:block;filter:drop-shadow(0 4px 20px rgba(138,79,255,.4))}
+.hero h1{font-size:24px;font-weight:800;background:linear-gradient(135deg,#fff,#c4b5fd);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:6px;letter-spacing:-.5px}
+.hero .sub{font-size:13px;color:rgba(196,181,253,.7);font-weight:400}
+.badge{display:inline-block;background:rgba(138,79,255,.15);color:#c4b5fd;font-size:12px;font-weight:600;padding:6px 16px;border-radius:24px;margin-top:12px;border:1px solid rgba(138,79,255,.2);backdrop-filter:blur(8px)}
+.card{background:rgba(255,255,255,.04);border-radius:20px;padding:24px;margin-bottom:16px;border:1px solid rgba(255,255,255,.06);backdrop-filter:blur(12px);transition:transform .2s}
+.card:hover{transform:translateY(-2px)}
+.card h2{font-size:16px;font-weight:700;color:#e9d5ff;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.card h3{font-size:14px;font-weight:700;color:#c4b5fd;margin:16px 0 8px;padding-left:12px;border-left:3px solid #8A4FFF}
+.card p,.card li{font-size:13px;line-height:1.8;color:rgba(226,216,240,.85)}
+.pillar-row{display:flex;gap:10px;margin-bottom:20px}
+.pillar{flex:1;background:linear-gradient(145deg,rgba(138,79,255,.08),rgba(99,102,241,.04));border-radius:16px;padding:16px 8px;text-align:center;border:1px solid rgba(138,79,255,.15);position:relative;overflow:hidden}
+.pillar::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#8A4FFF,#c084fc);opacity:.6}
+.pillar .label{font-size:10px;font-weight:700;color:#a78bfa;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px}
+.pillar .hanja{font-size:26px;font-weight:800;color:#fff;text-shadow:0 2px 12px rgba(138,79,255,.3)}
+.pillar .hangul{font-size:11px;color:rgba(196,181,253,.6);margin-top:4px}
+.iljin-bar{background:linear-gradient(135deg,#1e1145,#312E81,#4338ca);border-radius:16px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;border:1px solid rgba(138,79,255,.2);box-shadow:0 4px 24px rgba(99,102,241,.15)}
+.iljin-bar .label{font-size:12px;color:rgba(255,255,255,.5);font-weight:500}
+.iljin-bar .value{font-size:17px;font-weight:800;background:linear-gradient(135deg,#fff,#c4b5fd);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.oheng-card{background:linear-gradient(145deg,rgba(138,79,255,.06),rgba(99,102,241,.03));border-radius:16px;padding:20px;margin-bottom:16px;border:1px solid rgba(138,79,255,.12)}
+.oheng-card h2{font-size:15px;font-weight:700;color:#c4b5fd;margin-bottom:10px}
+.oheng-card p{font-size:13px;line-height:1.8;color:rgba(226,216,240,.8)}
+.compat-btn{display:block;width:100%;padding:18px;background:linear-gradient(135deg,#8A4FFF,#6d28d9);color:#fff;text-align:center;border-radius:16px;font-size:16px;font-weight:700;text-decoration:none;margin:20px 0;box-shadow:0 4px 24px rgba(138,79,255,.3);transition:all .2s;letter-spacing:-.3px}
+.compat-btn:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(138,79,255,.4)}
+.char-card{background:rgba(255,255,255,.04);border-radius:14px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:10px;border:1px solid rgba(255,255,255,.06)}
+.char-card .ch{font-size:24px;font-weight:800;color:#fff;min-width:32px;text-align:center}
+.char-card .hanja-text{font-size:14px;color:rgba(196,181,253,.6)}
+.tag{display:inline-block;background:rgba(138,79,255,.12);color:#a78bfa;font-size:11px;font-weight:600;padding:4px 10px;border-radius:8px;margin-left:4px;border:1px solid rgba(138,79,255,.15)}
+.score-badge{font-size:20px;font-weight:800;color:#c084fc}
+.rec-card{background:rgba(255,255,255,.04);border-radius:16px;padding:18px;margin-bottom:14px;border:1px solid rgba(255,255,255,.06);transition:transform .2s}
+.rec-card:hover{transform:translateY(-2px)}
+.rec-card .name{font-size:18px;font-weight:800;color:#fff}
+.rec-card .hanja{font-size:13px;color:rgba(196,181,253,.6)}
+.rec-card .score{background:linear-gradient(135deg,rgba(138,79,255,.2),rgba(192,132,252,.15));color:#c084fc;font-size:13px;font-weight:700;padding:4px 12px;border-radius:20px;float:right;border:1px solid rgba(138,79,255,.2)}
+.rec-card .meaning{font-size:12px;color:rgba(226,216,240,.7);line-height:1.6;margin-top:8px;clear:both}
+.markdown-content h1{font-size:16px;font-weight:700;color:#e9d5ff;margin:18px 0 8px}
+.markdown-content h2{font-size:15px;font-weight:700;color:#e9d5ff;margin:16px 0 8px}
+.markdown-content h3{font-size:14px;font-weight:700;color:#c4b5fd;margin:14px 0 6px}
+.markdown-content p{font-size:13px;line-height:1.8;color:rgba(226,216,240,.85);margin-bottom:10px}
+.markdown-content ul,.markdown-content ol{padding-left:20px;margin-bottom:10px}
+.markdown-content li{font-size:13px;line-height:1.8;color:rgba(226,216,240,.85)}
+.markdown-content strong{color:#e9d5ff}
+.footer{text-align:center;padding:32px 0 16px}
+.footer p{font-size:11px;color:rgba(196,181,253,.4);margin-bottom:16px}
+.footer a{display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#8A4FFF,#6d28d9);color:#fff;border-radius:14px;text-decoration:none;font-size:15px;font-weight:700;box-shadow:0 4px 24px rgba(138,79,255,.3);transition:all .2s;letter-spacing:-.3px}
+.footer a:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(138,79,255,.4)}
+.divider{height:1px;background:linear-gradient(90deg,transparent,rgba(138,79,255,.2),transparent);margin:8px 0}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.card,.pillar,.iljin-bar,.oheng-card,.rec-card,.char-card{animation:fadeUp .5s ease-out both}
+.card:nth-child(2){animation-delay:.1s}.card:nth-child(3){animation-delay:.2s}.card:nth-child(4){animation-delay:.3s}`;
 
   let body = '';
   const markedScript = '<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"><\/script>';
@@ -73,6 +92,15 @@ document.querySelectorAll('[data-markdown]').forEach(function(el){
   el.removeAttribute('data-markdown');
 });
 </script>`;
+
+  const heroMap = {
+    fortune:        { icon: '🔮', title: '사주팔자', sub: 'AI 사주 분석 결과' },
+    daily:          { icon: '☀️', title: '오늘의 운세', sub: '오늘 하루를 밝히는 운세' },
+    compatibility:  { icon: '💑', title: '궁합 분석', sub: 'AI 궁합 분석 결과' },
+    name_analysis:  { icon: '📝', title: '이름 분석', sub: 'AI 성명학 분석' },
+    name_recommend: { icon: '✨', title: '이름 추천', sub: 'AI 성명학 작명' },
+  };
+  const hero = heroMap[type] || heroMap.fortune;
 
   switch (type) {
     case 'fortune': {
@@ -86,29 +114,20 @@ document.querySelectorAll('[data-markdown]').forEach(function(el){
       ];
       const pillarHtml = pillars.map(({ label, p }) => p
         ? `<div class="pillar"><div class="label">${label}</div><div class="hanja">${p.hanja}</div><div class="hangul">${p.hangul}</div></div>`
-        : `<div class="pillar"><div class="label">${label}</div><div class="hanja" style="color:#D1D5DB">?</div><div class="hangul">미상</div></div>`
+        : `<div class="pillar"><div class="label">${label}</div><div class="hanja" style="color:rgba(255,255,255,.2)">?</div><div class="hangul">미상</div></div>`
       ).join('');
 
-      // ```json 코드 펜스로 감싸진 AI 응답 정리
       let manseryeok = data.manseryeok || data.interpretation || '';
       let yearFortune = data.yearFortune || '';
-
       const cleaned = cleanAiContent(manseryeok);
       if (typeof cleaned === 'object') {
         manseryeok = cleaned.manseryeok || manseryeok;
         if (!yearFortune && cleaned.yearFortune) yearFortune = cleaned.yearFortune;
-      } else {
-        manseryeok = cleaned;
-      }
-
+      } else { manseryeok = cleaned; }
       if (!yearFortune) {
         const cleanedInterp = cleanAiContent(data.interpretation || '');
-        if (typeof cleanedInterp === 'object' && cleanedInterp.yearFortune) {
-          yearFortune = cleanedInterp.yearFortune;
-        }
+        if (typeof cleanedInterp === 'object' && cleanedInterp.yearFortune) yearFortune = cleanedInterp.yearFortune;
       }
-
-      // yearFortune도 코드펜스 가능성
       const cleanedYf = cleanAiContent(yearFortune);
       if (typeof cleanedYf === 'string') yearFortune = cleanedYf;
 
@@ -117,8 +136,8 @@ document.querySelectorAll('[data-markdown]').forEach(function(el){
       if (yearFortune) sections.push({ emoji: '🌟', title: '올해의 운세', content: yearFortune });
       if (data.categories) {
         for (const c of data.categories) {
-          const cleanedContent = cleanAiContent(c.content);
-          sections.push({ emoji: c.emoji, title: c.label, content: typeof cleanedContent === 'string' ? cleanedContent : c.content });
+          const cc = cleanAiContent(c.content);
+          sections.push({ emoji: c.emoji, title: c.label, content: typeof cc === 'string' ? cc : c.content });
         }
       }
       const sectionHtml = sections.map(s =>
@@ -131,20 +150,21 @@ document.querySelectorAll('[data-markdown]').forEach(function(el){
         compatBtn = `<a class="compat-btn" href="https://fate.jiny.shop/compat?${params.toString()}">💑 이 사람과 궁합 보기</a>`;
       }
 
-      body = `<div class="header"><h1>🔮 사주팔자</h1></div>
+      body = `<div class="hero"><span class="icon">${hero.icon}</span><h1>${hero.title}</h1><p class="sub">${hero.sub}</p></div>
 <div class="pillar-row">${pillarHtml}</div>
-<div class="card"><h2>오행 분석</h2><p>${oheng.summary || ''}</p></div>
+<div class="oheng-card"><h2>⚖️ 오행 분석</h2><p>${oheng.summary || ''}</p></div>
+<div class="divider"></div>
 ${sectionHtml}${compatBtn}`;
       break;
     }
     case 'daily': {
-      body = `<div class="header"><h1>☀️ 오늘의 운세</h1><div class="badge">${data.date || ''}</div></div>
+      body = `<div class="hero"><span class="icon">${hero.icon}</span><h1>${hero.title}</h1><p class="sub">${hero.sub}</p><div class="badge">${data.date || ''}</div></div>
 <div class="iljin-bar"><span class="label">오늘의 일진</span><span class="value">${data.iljinHanja || ''} (${data.iljinHangul || ''})</span></div>
 <div class="card"><div class="markdown-content" data-markdown="${escapeAttr(data.reading || '')}"></div></div>`;
       break;
     }
     case 'compatibility': {
-      body = `<div class="header"><h1>💑 궁합 분석</h1></div>
+      body = `<div class="hero"><span class="icon">${hero.icon}</span><h1>${hero.title}</h1><p class="sub">${hero.sub}</p></div>
 <div class="card"><div class="markdown-content" data-markdown="${escapeAttr(data.consultation || '')}"></div></div>`;
       break;
     }
@@ -153,25 +173,25 @@ ${sectionHtml}${compatBtn}`;
         `<div class="char-card"><span class="ch">${ch.char}</span>${ch.hanja ? `<span class="hanja-text">(${ch.hanja})</span>` : ''}<span style="flex:1"></span><span class="tag">${ch.strokes}획</span><span class="tag">${ch.oheng}</span><span class="tag">${ch.yinYang}</span></div>`
       ).join('');
       const sections = [];
-      if (data.ohengBalance) sections.push({ t: '오행 균형', c: data.ohengBalance });
-      if (data.yinYangBalance) sections.push({ t: '음양 균형', c: data.yinYangBalance });
-      if (data.sajuCompatibility) sections.push({ t: '사주 궁합', c: data.sajuCompatibility });
-      if (data.advice) sections.push({ t: '운명선생의 조언', c: data.advice });
+      if (data.ohengBalance) sections.push({ t: '⚖️ 오행 균형', c: data.ohengBalance });
+      if (data.yinYangBalance) sections.push({ t: '☯️ 음양 균형', c: data.yinYangBalance });
+      if (data.sajuCompatibility) sections.push({ t: '🔮 사주 궁합', c: data.sajuCompatibility });
+      if (data.advice) sections.push({ t: '🍀 운명선생의 조언', c: data.advice });
       const sHtml = sections.map(s => `<h3>${s.t}</h3><div class="markdown-content" data-markdown="${escapeAttr(s.c)}"></div>`).join('');
 
-      body = `<div class="header"><h1>📝 이름 분석</h1><div class="badge score-badge">${data.overallScore || 0}점</div></div>
-<div class="card">${chars}${sHtml}</div>`;
+      body = `<div class="hero"><span class="icon">${hero.icon}</span><h1>${hero.title}</h1><p class="sub">${hero.sub}</p><div class="score-badge" style="margin-top:12px">${data.overallScore || 0}점</div></div>
+<div class="card">${chars}<div class="divider" style="margin:16px 0"></div>${sHtml}</div>`;
       break;
     }
     case 'name_recommend': {
       const recs = (data.recommendations || []).map(r =>
-        `<div class="rec-card"><span class="score">${r.score}점</span><span class="name">${r.name}</span> <span class="hanja">(${r.hanja})</span><div class="meaning">${r.meaning}<br><small style="color:#6B7280">${r.sajuFit}</small></div></div>`
+        `<div class="rec-card"><span class="score">${r.score}점</span><span class="name">${r.name}</span> <span class="hanja">(${r.hanja})</span><div class="meaning">${r.meaning}<br><small style="color:rgba(196,181,253,.5)">${r.sajuFit}</small></div></div>`
       ).join('');
-      const adviceHtml = data.advice ? `<h3>운명선생의 조언</h3><div class="markdown-content" data-markdown="${escapeAttr(data.advice)}"></div>` : '';
-      const criteriaHtml = data.selectionCriteria ? `<h3>선정 기준</h3><div class="markdown-content" data-markdown="${escapeAttr(data.selectionCriteria)}"></div>` : '';
+      const adviceHtml = data.advice ? `<h3>🍀 운명선생의 조언</h3><div class="markdown-content" data-markdown="${escapeAttr(data.advice)}"></div>` : '';
+      const criteriaHtml = data.selectionCriteria ? `<h3>📋 선정 기준</h3><div class="markdown-content" data-markdown="${escapeAttr(data.selectionCriteria)}"></div>` : '';
 
-      body = `<div class="header"><h1>✨ 이름 추천</h1></div>
-<div class="card">${recs}${criteriaHtml}${adviceHtml}</div>`;
+      body = `<div class="hero"><span class="icon">${hero.icon}</span><h1>${hero.title}</h1><p class="sub">${hero.sub}</p></div>
+<div class="card">${recs}<div class="divider" style="margin:16px 0"></div>${criteriaHtml}${adviceHtml}</div>`;
       break;
     }
     default:
@@ -196,7 +216,7 @@ ${sectionHtml}${compatBtn}`;
 <style>${css}</style>
 </head><body>
 <div class="wrap">${body}
-<div class="footer"><a href="https://apps.apple.com/app/id0000000000">운명일기 앱에서 보기</a></div>
+<div class="footer"><p>운명일기 — AI 사주 분석</p><a href="https://apps.apple.com/app/id0000000000">✨ 나도 운세 보기</a></div>
 </div>
 ${markedScript}${renderScript}
 </body></html>`;

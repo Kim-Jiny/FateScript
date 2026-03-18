@@ -15,6 +15,7 @@ import inquiryRoutes from './routes/inquiry.js';
 import adminRoutes from './routes/admin.js';
 import shareRoutes from './routes/share.js';
 import pool from './config/db.js';
+import { generateOgImage } from './utils/ogImage.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -25,7 +26,7 @@ app.use(cors());
 app.use(express.json({ limit: '5mb' }));
 
 // ── 공유 페이지 렌더 ──
-function renderSharePage(type, data, row) {
+function renderSharePage(type, data, row, shareId) {
   const css = `*{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#F6EFE5;min-height:100vh;padding:20px}
 .wrap{max-width:480px;margin:0 auto}
@@ -178,12 +179,19 @@ ${sectionHtml}${compatBtn}`;
   }
 
   const titleMap = { fortune: '사주팔자', daily: '오늘의 운세', compatibility: '궁합 분석', name_analysis: '이름 분석', name_recommend: '이름 추천' };
+  const descMap = { fortune: 'AI가 분석한 사주팔자 결과입니다.', daily: 'AI가 분석한 오늘의 운세입니다.', compatibility: 'AI가 분석한 궁합 결과입니다.', name_analysis: 'AI 성명학 이름 분석 결과입니다.', name_recommend: 'AI 성명학 이름 추천 결과입니다.' };
 
   return `<!DOCTYPE html>
 <html lang="ko"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <meta property="og:title" content="운명일기 - ${titleMap[type] || '결과'}">
-<meta property="og:description" content="AI 사주 분석 결과를 확인해 보세요.">
+<meta property="og:description" content="${descMap[type] || 'AI 사주 분석 결과를 확인해 보세요.'}">
+<meta property="og:image" content="https://fate.jiny.shop/og/${shareId}.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://fate.jiny.shop/s/${shareId}">
+<meta name="twitter:card" content="summary_large_image">
 <title>운명일기 - ${titleMap[type] || '결과'}</title>
 <style>${css}</style>
 </head><body>
@@ -298,10 +306,26 @@ app.get('/s/:id', async (req, res) => {
     if (rows.length === 0) return res.status(404).send('결과를 찾을 수 없습니다.');
     const row = rows[0];
     const data = typeof row.data === 'string' ? JSON.parse(row.data) : row.data;
-    res.send(renderSharePage(row.type, data, row));
+    res.send(renderSharePage(row.type, data, row, req.params.id));
   } catch (err) {
     console.error('share page error:', err);
     res.status(500).send('페이지를 불러올 수 없습니다.');
+  }
+});
+
+// ── OG 이미지 생성 ──
+app.get('/og/:id.png', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT type, data FROM shared_results WHERE id = $1', [req.params.id]);
+    if (rows.length === 0) return res.status(404).send('Not found');
+    const row = rows[0];
+    const data = typeof row.data === 'string' ? JSON.parse(row.data) : row.data;
+    const png = await generateOgImage(row.type, data);
+    res.set({ 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' });
+    res.send(png);
+  } catch (err) {
+    console.error('og image error:', err);
+    res.status(500).send('Image generation failed');
   }
 });
 

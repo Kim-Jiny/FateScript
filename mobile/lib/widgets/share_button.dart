@@ -39,11 +39,13 @@ class _ShareButtonState extends State<ShareButton> {
         birthTime: widget.birthTime,
         gender: widget.gender,
       );
+
       await Share.share(url);
     } catch (e) {
+      debugPrint('[ShareButton] API error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('공유 링크 생성에 실패했습니다.')),
+          SnackBar(content: Text('공유 링크 생성에 실패했습니다: $e')),
         );
       }
     } finally {

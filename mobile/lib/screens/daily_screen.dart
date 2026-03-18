@@ -63,6 +63,8 @@ class DailyScreen extends StatelessWidget {
   }
 
   Future<void> _fetchWithTicket(BuildContext context, BirthInfoProvider birthProvider, FortuneProvider fortuneProvider) async {
+    if (fortuneProvider.isLoading) return;
+
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (!authProvider.isLoggedIn) {
       final result = await Navigator.of(context).push<bool>(

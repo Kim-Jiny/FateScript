@@ -918,6 +918,9 @@ class _NameScreenState extends State<NameScreen> {
   // ── 티켓 게이팅 ──
 
   Future<bool> _checkTicket(String type) async {
+    final fortuneProvider = Provider.of<FortuneProvider>(context, listen: false);
+    if (fortuneProvider.isLoading) return false;
+
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (!authProvider.isLoggedIn) {
       final result = await Navigator.of(context).push<bool>(

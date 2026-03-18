@@ -112,6 +112,7 @@ class FortuneProvider extends ChangeNotifier {
   }
 
   Future<void> fetchFortune(BirthInfo info) async {
+    if (_isLoading) return;
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -128,6 +129,7 @@ class FortuneProvider extends ChangeNotifier {
   }
 
   Future<void> fetchDailyFortune(BirthInfo info) async {
+    if (_isLoading) return;
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -144,6 +146,7 @@ class FortuneProvider extends ChangeNotifier {
   }
 
   Future<void> analyzeName(BirthInfo info, String name) async {
+    if (_isLoading) return;
     _isLoading = true;
     _error = null;
     _nameAnalysisResult = null;
@@ -160,6 +163,7 @@ class FortuneProvider extends ChangeNotifier {
   }
 
   Future<void> recommendNames(BirthInfo info, String lastName) async {
+    if (_isLoading) return;
     _isLoading = true;
     _error = null;
     _nameRecommendResult = null;
@@ -178,6 +182,7 @@ class FortuneProvider extends ChangeNotifier {
   Future<void> fetchCompatibility(
       BirthInfo myInfo, BirthInfo partnerInfo, String relationship,
       {bool isLoggedIn = false}) async {
+    if (_isLoading) return;
     _isLoading = true;
     _error = null;
     _compatibilityResult = null;

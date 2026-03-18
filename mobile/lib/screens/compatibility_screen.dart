@@ -841,6 +841,8 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
 
   void _submit(
       BirthInfoProvider birthProvider, FortuneProvider fortuneProvider) async {
+    if (fortuneProvider.isLoading) return;
+
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (!authProvider.isLoggedIn) {
       final result = await Navigator.of(context).push<bool>(

@@ -16,6 +16,7 @@ class StorageService {
   static const _keyCompatibility = 'compatibility_result';
   static const _keyCompatibilitySavedYear = 'compatibility_saved_year';
   static const _keyCompatibilityHistory = 'compatibility_history';
+  static const _keyNameHistory = 'name_history';
 
   Future<void> saveBirthInfo(BirthInfo info) async {
     final prefs = await SharedPreferences.getInstance();
@@ -167,6 +168,33 @@ class StorageService {
     final history = await loadCompatibilityHistory();
     history.removeWhere((e) => e['id'] == id);
     await saveCompatibilityHistory(history);
+  }
+
+  // ── 성명학 히스토리 (로컬) ──
+
+  Future<void> saveNameHistory(List<Map<String, dynamic>> history) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyNameHistory, jsonEncode(history));
+  }
+
+  Future<List<Map<String, dynamic>>> loadNameHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final json = prefs.getString(_keyNameHistory);
+    if (json == null) return [];
+    final list = jsonDecode(json) as List;
+    return list.map((e) => e as Map<String, dynamic>).toList();
+  }
+
+  Future<void> addNameHistoryEntry(Map<String, dynamic> entry) async {
+    final history = await loadNameHistory();
+    history.insert(0, entry);
+    await saveNameHistory(history);
+  }
+
+  Future<void> deleteNameHistoryEntry(int id) async {
+    final history = await loadNameHistory();
+    history.removeWhere((e) => e['id'] == id);
+    await saveNameHistory(history);
   }
 
   // ── 추천인 코드 (딥링크 보관) ──

@@ -5,6 +5,7 @@ import '../models/daily_fortune.dart';
 import '../models/name_analysis_result.dart';
 import '../models/compatibility_result.dart';
 import '../models/compatibility_history_item.dart';
+import '../models/name_history_item.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
 
@@ -18,6 +19,7 @@ class FortuneProvider extends ChangeNotifier {
   NameRecommendResult? _nameRecommendResult;
   CompatibilityResult? _compatibilityResult;
   List<CompatibilityHistoryItem> _compatibilityHistory = [];
+  List<NameHistoryItem> _nameHistory = [];
   bool _isLoading = false;
   String? _error;
 
@@ -27,6 +29,7 @@ class FortuneProvider extends ChangeNotifier {
   NameRecommendResult? get nameRecommendResult => _nameRecommendResult;
   CompatibilityResult? get compatibilityResult => _compatibilityResult;
   List<CompatibilityHistoryItem> get compatibilityHistory => _compatibilityHistory;
+  List<NameHistoryItem> get nameHistory => _nameHistory;
   bool get isLoading => _isLoading;
   String? get error => _error;
 
@@ -145,7 +148,8 @@ class FortuneProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> analyzeName(BirthInfo info, String name) async {
+  Future<void> analyzeName(BirthInfo info, String name,
+      {bool isLoggedIn = false}) async {
     if (_isLoading) return;
     _isLoading = true;
     _error = null;
@@ -154,6 +158,25 @@ class FortuneProvider extends ChangeNotifier {
 
     try {
       _nameAnalysisResult = await _api.analyzeName(info, name);
+
+      // 히스토리에 추가
+      if (isLoggedIn) {
+        await loadNameHistory(fromServer: true);
+      } else {
+        final entry = {
+          'id': DateTime.now().millisecondsSinceEpoch,
+          'mode': 'analyze',
+          'name': name,
+          'lastName': null,
+          'birthDate': info.birthDate,
+          'birthTime': info.birthTime,
+          'gender': info.gender,
+          'result': _nameAnalysisResult!.toJson(),
+          'createdAt': DateTime.now().toIso8601String(),
+        };
+        await _storage.addNameHistoryEntry(entry);
+        _nameHistory.insert(0, NameHistoryItem.fromJson(entry));
+      }
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -162,7 +185,8 @@ class FortuneProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> recommendNames(BirthInfo info, String lastName) async {
+  Future<void> recommendNames(BirthInfo info, String lastName,
+      {bool isLoggedIn = false}) async {
     if (_isLoading) return;
     _isLoading = true;
     _error = null;
@@ -171,6 +195,25 @@ class FortuneProvider extends ChangeNotifier {
 
     try {
       _nameRecommendResult = await _api.recommendNames(info, lastName);
+
+      // 히스토리에 추가
+      if (isLoggedIn) {
+        await loadNameHistory(fromServer: true);
+      } else {
+        final entry = {
+          'id': DateTime.now().millisecondsSinceEpoch,
+          'mode': 'recommend',
+          'name': null,
+          'lastName': lastName,
+          'birthDate': info.birthDate,
+          'birthTime': info.birthTime,
+          'gender': info.gender,
+          'result': _nameRecommendResult!.toJson(),
+          'createdAt': DateTime.now().toIso8601String(),
+        };
+        await _storage.addNameHistoryEntry(entry);
+        _nameHistory.insert(0, NameHistoryItem.fromJson(entry));
+      }
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -219,6 +262,41 @@ class FortuneProvider extends ChangeNotifier {
       _error = e.toString();
     } finally {
       _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // ── 성명학 히스토리 ──
+
+  Future<void> loadNameHistory({required bool fromServer}) async {
+    try {
+      if (fromServer) {
+        final list = await _api.getNameHistory();
+        _nameHistory =
+            list.map((e) => NameHistoryItem.fromJson(e)).toList();
+      } else {
+        final list = await _storage.loadNameHistory();
+        _nameHistory =
+            list.map((e) => NameHistoryItem.fromJson(e)).toList();
+      }
+    } catch (e) {
+      debugPrint('Load name history failed: $e');
+      _nameHistory = [];
+    }
+    notifyListeners();
+  }
+
+  Future<void> deleteNameHistoryItem(int id, bool fromServer) async {
+    try {
+      if (fromServer) {
+        await _api.deleteNameHistory(id);
+      } else {
+        await _storage.deleteNameHistoryEntry(id);
+      }
+      _nameHistory.removeWhere((e) => e.id == id);
+      notifyListeners();
+    } catch (e) {
+      _error = e.toString();
       notifyListeners();
     }
   }

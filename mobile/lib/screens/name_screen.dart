@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../data/hanja_dict.dart';
 import '../models/birth_info.dart';
 import '../models/name_analysis_result.dart';
+import '../models/name_history_item.dart';
 import '../providers/auth_provider.dart';
 import '../providers/birth_info_provider.dart';
 import '../providers/fortune_provider.dart';
@@ -38,6 +39,7 @@ class NameScreen extends StatefulWidget {
 }
 
 class _NameScreenState extends State<NameScreen> {
+  bool _showNewInput = false;
   bool _isRecommendMode = false;
   final _nameController = TextEditingController();
   final _lastNameController = TextEditingController();
@@ -58,6 +60,18 @@ class _NameScreenState extends State<NameScreen> {
     super.initState();
     _nameController.addListener(_onNameChanged);
     _lastNameController.addListener(_onLastNameChanged);
+    _loadHistory();
+  }
+
+  void _loadHistory() {
+    final fortuneProvider =
+        Provider.of<FortuneProvider>(context, listen: false);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (authProvider.isLoggedIn) {
+      fortuneProvider.loadNameHistory(fromServer: true);
+    } else {
+      fortuneProvider.loadNameHistory(fromServer: false);
+    }
   }
 
   void _onNameChanged() {
@@ -85,53 +99,10 @@ class _NameScreenState extends State<NameScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          GestureDetector(
-            onTap: () => FocusScope.of(context).unfocus(),
-            behavior: HitTestBehavior.translucent,
-            child: SafeArea(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(20, 8, 20, 0),
-                    child: Text('성명학',
-                        style: TextStyle(
-                            fontSize: 19, fontWeight: FontWeight.w700)),
-                  ),
-                  const SizedBox(height: 12),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _toggleChip(
-                            label: '이름 해석',
-                            selected: !_isRecommendMode,
-                            onTap: () =>
-                                setState(() => _isRecommendMode = false),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _toggleChip(
-                            label: '이름 추천',
-                            selected: _isRecommendMode,
-                            onTap: () =>
-                                setState(() => _isRecommendMode = true),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: _isRecommendMode
-                        ? _recommendTab(birthProvider, fortuneProvider)
-                        : _analyzeTab(birthProvider, fortuneProvider),
-                  ),
-                ],
-              ),
-            ),
+          SafeArea(
+            child: _showNewInput
+                ? _newInputView(birthProvider, fortuneProvider)
+                : _historyView(fortuneProvider),
           ),
           if (fortuneProvider.isLoading)
             LoadingOverlay(
@@ -139,6 +110,347 @@ class _NameScreenState extends State<NameScreen> {
                   ? '운명선생이 이름을 추천하고 있습니다...'
                   : '운명선생이 이름을 분석하고 있습니다...',
             ),
+        ],
+      ),
+    );
+  }
+
+  // ── 히스토리 뷰 ──
+
+  Widget _historyView(FortuneProvider fortuneProvider) {
+    final history = fortuneProvider.nameHistory;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+          child: Row(
+            children: [
+              const Text('성명학',
+                  style:
+                      TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
+              const Spacer(),
+              _smallButton(
+                icon: Icons.text_fields,
+                label: '이름 해석',
+                onTap: () => setState(() {
+                  _isRecommendMode = false;
+                  _showNewInput = true;
+                }),
+              ),
+              const SizedBox(width: 6),
+              _smallButton(
+                icon: Icons.auto_awesome,
+                label: '이름 추천',
+                onTap: () => setState(() {
+                  _isRecommendMode = true;
+                  _showNewInput = true;
+                }),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        Expanded(
+          child: history.isEmpty
+              ? _emptyHistory()
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: history.length,
+                  itemBuilder: (context, index) =>
+                      _historyCard(context, history[index], fortuneProvider),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _smallButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFF8A4FFF),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: Colors.white),
+            const SizedBox(width: 4),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _emptyHistory() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.text_fields,
+              size: 64, color: Color(0xFFD1D5DB)),
+          const SizedBox(height: 16),
+          const Text(
+            '아직 성명학 분석 기록이 없습니다.',
+            style: TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            '이름 해석이나 이름 추천을 시작해 보세요.',
+            style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _historyCard(BuildContext context, NameHistoryItem item,
+      FortuneProvider fortuneProvider) {
+    return GestureDetector(
+      onTap: () => _showHistoryDetail(context, item),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  item.mode == 'analyze'
+                      ? Icons.text_fields
+                      : Icons.auto_awesome,
+                  size: 16,
+                  color: const Color(0xFF8A4FFF),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF8A4FFF).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    item.modeLabel,
+                    style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF8A4FFF)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                if (item.overallScore > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color:
+                          const Color(0xFF8A4FFF).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      '${item.overallScore}점',
+                      style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF8A4FFF)),
+                    ),
+                  ),
+                const Spacer(),
+                if (item.createdAt.isNotEmpty)
+                  Text(
+                    _formatDate(item.createdAt),
+                    style: const TextStyle(
+                        fontSize: 10, color: Color(0xFF9CA3AF)),
+                  ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () =>
+                      _confirmDelete(context, item.id, fortuneProvider),
+                  child: const Icon(Icons.delete_outline,
+                      size: 18, color: Color(0xFF9CA3AF)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              item.displayName,
+              style: const TextStyle(
+                  fontSize: 15, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${item.birthDate} · ${item.gender == 'male' ? '남' : '여'}',
+              style:
+                  const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDate(String isoDate) {
+    try {
+      final date = DateTime.parse(isoDate);
+      return DateFormat('yyyy.MM.dd').format(date);
+    } catch (_) {
+      return isoDate;
+    }
+  }
+
+  void _showHistoryDetail(BuildContext context, NameHistoryItem item) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (_, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD1D5DB),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Expanded(
+                child: ListView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.all(20),
+                  children: [
+                    if (item.mode == 'analyze')
+                      _analysisResultCard(item.analysisResult)
+                    else
+                      _recommendResultCard(item.recommendResult),
+                    const SizedBox(height: 40),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _confirmDelete(
+      BuildContext context, int id, FortuneProvider fortuneProvider) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('성명학 기록 삭제'),
+        content: const Text('이 기록을 삭제하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () {
+              fortuneProvider.deleteNameHistoryItem(
+                  id, authProvider.isLoggedIn);
+              Navigator.pop(context);
+            },
+            child:
+                const Text('삭제', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── 새 입력 뷰 ──
+
+  Widget _newInputView(
+      BirthInfoProvider birthProvider, FortuneProvider fortuneProvider) {
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      behavior: HitTestBehavior.translucent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    setState(() => _showNewInput = false);
+                    _loadHistory();
+                  },
+                  child: const Icon(Icons.arrow_back_ios, size: 20),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _isRecommendMode ? '새 이름 추천' : '새 이름 해석',
+                  style: const TextStyle(
+                      fontSize: 19, fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _toggleChip(
+                    label: '이름 해석',
+                    selected: !_isRecommendMode,
+                    onTap: () =>
+                        setState(() => _isRecommendMode = false),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _toggleChip(
+                    label: '이름 추천',
+                    selected: _isRecommendMode,
+                    onTap: () =>
+                        setState(() => _isRecommendMode = true),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: _isRecommendMode
+                ? _recommendTab(birthProvider, fortuneProvider)
+                : _analyzeTab(birthProvider, fortuneProvider),
+          ),
         ],
       ),
     );
@@ -990,7 +1302,9 @@ class _NameScreenState extends State<NameScreen> {
     }
 
     final info = _getEffectiveBirthInfo(birthProvider);
-    fortuneProvider.analyzeName(info, fullName);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    fortuneProvider.analyzeName(info, fullName,
+        isLoggedIn: authProvider.isLoggedIn);
   }
 
   void _submitRecommend(
@@ -1017,6 +1331,8 @@ class _NameScreenState extends State<NameScreen> {
     }
 
     final info = _getEffectiveBirthInfo(birthProvider);
-    fortuneProvider.recommendNames(info, fullLastName);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    fortuneProvider.recommendNames(info, fullLastName,
+        isLoggedIn: authProvider.isLoggedIn);
   }
 }

@@ -446,6 +446,37 @@ class ApiService {
     return json['shareUrl'] as String;
   }
 
+  // ── Name History API ──
+
+  Future<List<Map<String, dynamic>>> getNameHistory() async {
+    final response = await http
+        .get(
+          Uri.parse('$_baseUrl/api/name-analysis/history'),
+          headers: _headers,
+        )
+        .timeout(_timeout);
+
+    if (response.statusCode != 200) {
+      throw Exception('성명학 히스토리 조회에 실패했습니다 (${response.statusCode})');
+    }
+
+    final list = jsonDecode(response.body) as List;
+    return list.map((e) => e as Map<String, dynamic>).toList();
+  }
+
+  Future<void> deleteNameHistory(int id) async {
+    final response = await http
+        .delete(
+          Uri.parse('$_baseUrl/api/name-analysis/history/$id'),
+          headers: _headers,
+        )
+        .timeout(_timeout);
+
+    if (response.statusCode != 200) {
+      throw Exception('성명학 히스토리 삭제에 실패했습니다 (${response.statusCode})');
+    }
+  }
+
   // ── Compatibility History API ──
 
   Future<List<Map<String, dynamic>>> getCompatibilityHistory() async {

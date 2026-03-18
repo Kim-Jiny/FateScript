@@ -56,6 +56,22 @@ export async function initDb() {
 
     CREATE INDEX IF NOT EXISTS idx_compat_history_uid ON compatibility_history(uid);
 
+    CREATE TABLE IF NOT EXISTS name_history (
+      id         SERIAL PRIMARY KEY,
+      uid        TEXT NOT NULL,
+      cache_key  TEXT NOT NULL,
+      mode       TEXT NOT NULL,
+      name       TEXT,
+      last_name  TEXT,
+      birth_date TEXT NOT NULL,
+      birth_time TEXT,
+      gender     TEXT NOT NULL,
+      result     JSONB NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT now()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_name_history_uid ON name_history(uid);
+
     CREATE TABLE IF NOT EXISTS tickets (
       uid TEXT PRIMARY KEY,
       balance INT NOT NULL DEFAULT 0,

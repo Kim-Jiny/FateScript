@@ -306,6 +306,7 @@ router.delete('/account', requireAuth, async (req, res) => {
     await pool.query('DELETE FROM ticket_transactions WHERE uid = $1', [uid]);
     await pool.query('DELETE FROM tickets WHERE uid = $1', [uid]);
     await pool.query('DELETE FROM compatibility_history WHERE uid = $1', [uid]);
+    await pool.query('DELETE FROM name_history WHERE uid = $1', [uid]);
     await pool.query('DELETE FROM user_results WHERE uid = $1', [uid]);
     await pool.query('DELETE FROM users WHERE uid = $1', [uid]);
 

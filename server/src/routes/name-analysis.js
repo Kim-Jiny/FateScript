@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { analyzeNameFortune, recommendNames, saveUserResult } from '../services/fortune.js';
-import { optionalAuth } from '../middleware/auth.js';
+import { analyzeNameFortune, recommendNames, saveUserResult, saveNameHistory, getNameHistory, deleteNameHistory } from '../services/fortune.js';
+import { optionalAuth, requireAuth } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -36,6 +36,10 @@ router.post('/', optionalAuth, async (req, res) => {
             params: { name, birthDate, birthTime, gender },
             result,
           });
+          await saveNameHistory({
+            uid: req.uid, mode: 'analyze', name, lastName: null,
+            birthDate, birthTime, gender, result,
+          });
         } catch (err) {
           console.error('Failed to save user name analysis result:', err);
         }
@@ -58,6 +62,10 @@ router.post('/', optionalAuth, async (req, res) => {
             params: { lastName, birthDate, birthTime, gender },
             result,
           });
+          await saveNameHistory({
+            uid: req.uid, mode: 'recommend', name: null, lastName,
+            birthDate, birthTime, gender, result,
+          });
         } catch (err) {
           console.error('Failed to save user name recommend result:', err);
         }
@@ -70,6 +78,28 @@ router.post('/', optionalAuth, async (req, res) => {
   } catch (err) {
     console.error('Name analysis error:', err);
     res.status(500).json({ error: '성명학 분석 중 오류가 발생했습니다.' });
+  }
+});
+
+// ── 히스토리 API ──
+
+router.get('/history', requireAuth, async (req, res) => {
+  try {
+    const history = await getNameHistory(req.uid);
+    res.json(history);
+  } catch (err) {
+    console.error('Get name history error:', err);
+    res.status(500).json({ error: '성명학 히스토리 조회 중 오류가 발생했습니다.' });
+  }
+});
+
+router.delete('/history/:id', requireAuth, async (req, res) => {
+  try {
+    await deleteNameHistory(req.uid, Number(req.params.id));
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Delete name history error:', err);
+    res.status(500).json({ error: '성명학 히스토리 삭제 중 오류가 발생했습니다.' });
   }
 });
 

@@ -409,3 +409,65 @@ export async function deleteCompatibilityHistory(uid, id) {
     [uid, id],
   );
 }
+
+// ── 성명학 히스토리 ────────────────────────────────────
+
+/**
+ * 성명학 히스토리 저장
+ */
+export async function saveNameHistory({
+  uid, mode, name, lastName, birthDate, birthTime, gender, result,
+}) {
+  const cacheKey = mode === 'analyze'
+    ? `name-analysis:${name}:${birthDate}-${birthTime}-${gender}`
+    : `name-recommend:${lastName}:${birthDate}-${birthTime}-${gender}`;
+
+  // 같은 캐시키의 히스토리가 이미 있으면 저장하지 않음
+  const { rows } = await pool.query(
+    'SELECT id FROM name_history WHERE uid = $1 AND cache_key = $2',
+    [uid, cacheKey],
+  );
+  if (rows.length > 0) return;
+
+  await pool.query(
+    `INSERT INTO name_history
+      (uid, cache_key, mode, name, last_name, birth_date, birth_time, gender, result)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    [uid, cacheKey, mode, name ?? null, lastName ?? null,
+     birthDate, birthTime ?? 'unknown', gender, JSON.stringify(result)],
+  );
+}
+
+/**
+ * 성명학 히스토리 조회
+ */
+export async function getNameHistory(uid) {
+  const { rows } = await pool.query(
+    `SELECT id, mode, name, last_name, birth_date, birth_time, gender, result, created_at
+     FROM name_history
+     WHERE uid = $1
+     ORDER BY created_at DESC`,
+    [uid],
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    mode: r.mode,
+    name: r.name,
+    lastName: r.last_name,
+    birthDate: r.birth_date,
+    birthTime: r.birth_time,
+    gender: r.gender,
+    result: r.result,
+    createdAt: r.created_at,
+  }));
+}
+
+/**
+ * 성명학 히스토리 삭제
+ */
+export async function deleteNameHistory(uid, id) {
+  await pool.query(
+    'DELETE FROM name_history WHERE uid = $1 AND id = $2',
+    [uid, id],
+  );
+}

@@ -44,17 +44,30 @@ body::before{content:'';position:fixed;top:-50%;left:-50%;width:200%;height:200%
 .card h3{font-size:14px;font-weight:700;color:#c4b5fd;margin:16px 0 8px;padding-left:12px;border-left:3px solid #8A4FFF}
 .card p,.card li{font-size:13px;line-height:1.8;color:rgba(226,216,240,.85)}
 .pillar-row{display:flex;gap:10px;margin-bottom:20px}
-.pillar{flex:1;background:linear-gradient(145deg,rgba(138,79,255,.08),rgba(99,102,241,.04));border-radius:16px;padding:16px 8px;text-align:center;border:1px solid rgba(138,79,255,.15);position:relative;overflow:hidden}
-.pillar::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#8A4FFF,#c084fc);opacity:.6}
-.pillar .label{font-size:10px;font-weight:700;color:#a78bfa;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px}
-.pillar .hanja{font-size:26px;font-weight:800;color:#fff;text-shadow:0 2px 12px rgba(138,79,255,.3)}
-.pillar .hangul{font-size:11px;color:rgba(196,181,253,.6);margin-top:4px}
+.pillar{flex:1;border-radius:16px;text-align:center;overflow:hidden;border:1px solid rgba(255,255,255,.08)}
+.pillar .label{font-size:10px;font-weight:700;color:#a78bfa;letter-spacing:1px;padding:10px 8px 6px;background:rgba(138,79,255,.06)}
+.pillar .stem,.pillar .branch{padding:10px 8px}
+.pillar .stem{border-bottom:1px solid rgba(255,255,255,.06)}
+.pillar .char{font-size:26px;font-weight:800;line-height:1.2}
+.pillar .reading{font-size:10px;margin-top:2px;opacity:.6}
+.oheng-section{background:rgba(255,255,255,.04);border-radius:20px;padding:24px;margin-bottom:16px;border:1px solid rgba(255,255,255,.06)}
+.oheng-section h2{font-size:16px;font-weight:700;color:#e9d5ff;margin-bottom:16px}
+.oheng-bars{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+.oheng-row{display:flex;align-items:center;gap:10px}
+.oheng-row .el-label{min-width:54px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:4px}
+.oheng-row .el-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.oheng-row .bar-wrap{flex:1;height:12px;background:rgba(255,255,255,.06);border-radius:6px;overflow:hidden}
+.oheng-row .bar-fill{height:100%;border-radius:6px;transition:width .8s ease}
+.oheng-row .el-count{min-width:20px;text-align:right;font-size:12px;font-weight:700;color:rgba(226,216,240,.8)}
+.oheng-tags{display:flex;gap:10px;flex-wrap:wrap}
+.oheng-tag{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:8px 14px;font-size:12px}
+.oheng-tag .tag-emoji{font-size:16px}
+.oheng-tag .tag-label{color:rgba(196,181,253,.6);font-weight:500}
+.oheng-tag .tag-value{font-weight:700;color:#e9d5ff}
+.oheng-summary{margin-top:14px;font-size:13px;line-height:1.8;color:rgba(226,216,240,.7)}
 .iljin-bar{background:linear-gradient(135deg,#1e1145,#312E81,#4338ca);border-radius:16px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;border:1px solid rgba(138,79,255,.2);box-shadow:0 4px 24px rgba(99,102,241,.15)}
 .iljin-bar .label{font-size:12px;color:rgba(255,255,255,.5);font-weight:500}
 .iljin-bar .value{font-size:17px;font-weight:800;background:linear-gradient(135deg,#fff,#c4b5fd);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.oheng-card{background:linear-gradient(145deg,rgba(138,79,255,.06),rgba(99,102,241,.03));border-radius:16px;padding:20px;margin-bottom:16px;border:1px solid rgba(138,79,255,.12)}
-.oheng-card h2{font-size:15px;font-weight:700;color:#c4b5fd;margin-bottom:10px}
-.oheng-card p{font-size:13px;line-height:1.8;color:rgba(226,216,240,.8)}
 .compat-btn{display:block;width:100%;padding:18px;background:linear-gradient(135deg,#8A4FFF,#6d28d9);color:#fff;text-align:center;border-radius:16px;font-size:16px;font-weight:700;text-decoration:none;margin:20px 0;box-shadow:0 4px 24px rgba(138,79,255,.3);transition:all .2s;letter-spacing:-.3px}
 .compat-btn:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(138,79,255,.4)}
 .char-card{background:rgba(255,255,255,.04);border-radius:14px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:10px;border:1px solid rgba(255,255,255,.06)}
@@ -81,7 +94,7 @@ body::before{content:'';position:fixed;top:-50%;left:-50%;width:200%;height:200%
 .footer a:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(138,79,255,.4)}
 .divider{height:1px;background:linear-gradient(90deg,transparent,rgba(138,79,255,.2),transparent);margin:8px 0}
 @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
-.card,.pillar,.iljin-bar,.oheng-card,.rec-card,.char-card{animation:fadeUp .5s ease-out both}
+.card,.pillar,.iljin-bar,.oheng-section,.rec-card,.char-card{animation:fadeUp .5s ease-out both}
 .card:nth-child(2){animation-delay:.1s}.card:nth-child(3){animation-delay:.2s}.card:nth-child(4){animation-delay:.3s}`;
 
   let body = '';
@@ -102,21 +115,56 @@ document.querySelectorAll('[data-markdown]').forEach(function(el){
   };
   const hero = heroMap[type] || heroMap.fortune;
 
+  // 천간/지지 → 오행 매핑 (사주 기둥 색상용)
+  const stemEl = { '갑':'목','을':'목','병':'화','정':'화','무':'토','기':'토','경':'금','신':'금','임':'수','계':'수' };
+  const branchEl = { '인':'목','묘':'목','사':'화','오':'화','진':'토','술':'토','축':'토','미':'토','신':'금','유':'금','해':'수','자':'수' };
+  const elColor = { '목':'#22C55E','화':'#EF4444','토':'#F59E0B','금':'#9CA3AF','수':'#3B82F6' };
+  const elBg = { '목':'rgba(34,197,94,.12)','화':'rgba(239,68,68,.12)','토':'rgba(245,158,11,.12)','금':'rgba(156,163,175,.12)','수':'rgba(59,130,246,.12)' };
+
   switch (type) {
     case 'fortune': {
       const saju = data.saju || {};
       const oheng = data.oheng || {};
+
+      // ── 사주 기둥 (천간/지지 분리, 오행 색상) ──
       const pillars = [
         { label: '년주', p: saju.yearPillar },
         { label: '월주', p: saju.monthPillar },
         { label: '일주', p: saju.dayPillar },
         { label: '시주', p: saju.hourPillar },
       ];
-      const pillarHtml = pillars.map(({ label, p }) => p
-        ? `<div class="pillar"><div class="label">${label}</div><div class="hanja">${p.hanja}</div><div class="hangul">${p.hangul}</div></div>`
-        : `<div class="pillar"><div class="label">${label}</div><div class="hanja" style="color:rgba(255,255,255,.2)">?</div><div class="hangul">미상</div></div>`
-      ).join('');
+      const pillarHtml = pillars.map(({ label, p }) => {
+        if (!p) return `<div class="pillar"><div class="label">${label}</div><div class="stem" style="background:rgba(255,255,255,.02)"><div class="char" style="color:rgba(255,255,255,.15)">?</div></div><div class="branch" style="background:rgba(255,255,255,.02)"><div class="char" style="color:rgba(255,255,255,.15)">?</div><div class="reading">미상</div></div></div>`;
+        const stemChar = p.hangul[0], branchChar = p.hangul[p.hangul.length > 1 ? 1 : 0];
+        const stemHanja = p.hanja[0], branchHanja = p.hanja[p.hanja.length > 1 ? 1 : 0];
+        const sEl = stemEl[stemChar] || '토', bEl = branchEl[branchChar] || '토';
+        const sC = elColor[sEl], bC = elColor[bEl];
+        const sBg = elBg[sEl], bBg = elBg[bEl];
+        return `<div class="pillar"><div class="label">${label}</div><div class="stem" style="background:${sBg}"><div class="char" style="color:${sC}">${stemHanja}</div><div class="reading" style="color:${sC}">${stemChar}</div></div><div class="branch" style="background:${bBg}"><div class="char" style="color:${bC}">${branchHanja}</div><div class="reading" style="color:${bC}">${branchChar}</div></div></div>`;
+      }).join('');
 
+      // ── 오행 분석 (바 차트 + 강/약 태그 + 요약) ──
+      const dist = oheng.distribution || {};
+      const dominant = oheng.dominant || {};
+      const weak = oheng.weak || {};
+      const total = Object.values(dist).reduce((a, b) => a + b, 0) || 1;
+      const elOrder = ['목','화','토','금','수'];
+      const elName = { '목':'Wood','화':'Fire','토':'Earth','금':'Metal','수':'Water' };
+      const barsHtml = elOrder.map(el => {
+        const count = dist[el] || 0;
+        const pct = Math.round((count / total) * 100);
+        const c = elColor[el];
+        return `<div class="oheng-row"><span class="el-label"><span class="el-dot" style="background:${c}"></span>${el} ${elName[el]}</span><div class="bar-wrap"><div class="bar-fill" style="width:${pct}%;background:${c}"></div></div><span class="el-count">${count}</span></div>`;
+      }).join('');
+
+      const tagsHtml = `<div class="oheng-tags">`
+        + (dominant.name ? `<div class="oheng-tag"><span class="tag-emoji">${dominant.emoji || '🔥'}</span><span class="tag-label">가장 강한</span><span class="tag-value">${dominant.name}</span></div>` : '')
+        + (weak.name ? `<div class="oheng-tag"><span class="tag-emoji">${weak.emoji || '💧'}</span><span class="tag-label">가장 약한</span><span class="tag-value">${weak.name}</span></div>` : '')
+        + `</div>`;
+
+      const ohengHtml = `<div class="oheng-section"><h2>⚖️ 오행 분석</h2><div class="oheng-bars">${barsHtml}</div>${tagsHtml}${oheng.summary ? `<p class="oheng-summary">${oheng.summary}</p>` : ''}</div>`;
+
+      // ── 만세력 / 카테고리 ──
       let manseryeok = data.manseryeok || data.interpretation || '';
       let yearFortune = data.yearFortune || '';
       const cleaned = cleanAiContent(manseryeok);
@@ -152,7 +200,7 @@ document.querySelectorAll('[data-markdown]').forEach(function(el){
 
       body = `<div class="hero"><span class="icon">${hero.icon}</span><h1>${hero.title}</h1><p class="sub">${hero.sub}</p></div>
 <div class="pillar-row">${pillarHtml}</div>
-<div class="oheng-card"><h2>⚖️ 오행 분석</h2><p>${oheng.summary || ''}</p></div>
+${ohengHtml}
 <div class="divider"></div>
 ${sectionHtml}${compatBtn}`;
       break;

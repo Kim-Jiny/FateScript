@@ -133,6 +133,93 @@ router.post('/saju', requireAuth, async (req, res) => {
 });
 
 /**
+ * POST /api/user/apply-referral — 추천인 코드 적용 (로그인 시)
+ */
+router.post('/apply-referral', requireAuth, async (req, res) => {
+  try {
+    const { referralCode } = req.body ?? {};
+    if (!referralCode || typeof referralCode !== 'string' || !referralCode.trim()) {
+      return res.json({ applied: false, message: '추천 코드가 비어있습니다.' });
+    }
+
+    // 이미 추천을 받은 유저인지 확인
+    const { rows: existingRefs } = await pool.query(
+      'SELECT id FROM referrals WHERE referred_uid = $1',
+      [req.uid],
+    );
+    if (existingRefs.length > 0) {
+      return res.json({ applied: false, message: '이미 추천 코드를 사용하셨습니다.' });
+    }
+
+    // 추천인 코드 조회
+    const { rows: referrerRows } = await pool.query(
+      'SELECT uid FROM users WHERE referral_code = $1',
+      [referralCode.trim().toUpperCase()],
+    );
+    if (referrerRows.length === 0) {
+      return res.json({ applied: false, message: '유효하지 않은 추천 코드입니다.' });
+    }
+
+    const referrerUid = referrerRows[0].uid;
+
+    // 자기 추천 방지
+    if (referrerUid === req.uid) {
+      return res.json({ applied: false, message: '자신의 추천 코드는 사용할 수 없습니다.' });
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // referrals에 기록
+      await client.query(
+        'INSERT INTO referrals (referrer_uid, referred_uid) VALUES ($1, $2)',
+        [referrerUid, req.uid],
+      );
+
+      // 추천인 티켓 +3
+      await client.query(
+        `INSERT INTO tickets (uid, balance, updated_at) VALUES ($1, 3, now())
+         ON CONFLICT (uid) DO UPDATE SET balance = tickets.balance + 3, updated_at = now()`,
+        [referrerUid],
+      );
+      const referrerBal = await client.query('SELECT balance FROM tickets WHERE uid = $1', [referrerUid]);
+      await client.query(
+        `INSERT INTO ticket_transactions (uid, type, amount, balance_after, ref_id)
+         VALUES ($1, 'referral_bonus', 3, $2, $3)`,
+        [referrerUid, referrerBal.rows[0].balance, `referral:${req.uid}`],
+      );
+
+      // 입력자 티켓 +3
+      await client.query(
+        `INSERT INTO tickets (uid, balance, updated_at) VALUES ($1, 3, now())
+         ON CONFLICT (uid) DO UPDATE SET balance = tickets.balance + 3, updated_at = now()`,
+        [req.uid],
+      );
+      const myBal = await client.query('SELECT balance FROM tickets WHERE uid = $1', [req.uid]);
+      await client.query(
+        `INSERT INTO ticket_transactions (uid, type, amount, balance_after, ref_id)
+         VALUES ($1, 'referral_bonus', 3, $2, $3)`,
+        [req.uid, myBal.rows[0].balance, `referral:${referrerUid}`],
+      );
+
+      await client.query('COMMIT');
+      console.log(`[apply-referral] Referral bonus applied: referrer=${referrerUid}, referred=${req.uid}`);
+      res.json({ applied: true });
+    } catch (refErr) {
+      await client.query('ROLLBACK');
+      console.log(`[apply-referral] Referral failed: ${refErr.message}`);
+      res.json({ applied: false, message: '추천 코드 적용 중 오류가 발생했습니다.' });
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('[apply-referral] Error:', err);
+    res.status(500).json({ error: '추천 코드 적용 중 오류가 발생했습니다.' });
+  }
+});
+
+/**
  * GET /api/user/referral-code — 내 추천 코드 조회 (없으면 생성)
  */
 router.get('/referral-code', requireAuth, async (req, res) => {

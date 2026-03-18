@@ -200,6 +200,22 @@ class ApiService {
     return json['referralCode'] as String;
   }
 
+  Future<Map<String, dynamic>> applyReferralCode(String code) async {
+    final response = await http
+        .post(
+          Uri.parse('$_baseUrl/api/user/apply-referral'),
+          headers: _headers,
+          body: jsonEncode({'referralCode': code}),
+        )
+        .timeout(_timeout);
+
+    if (response.statusCode != 200) {
+      throw Exception('추천 코드 적용에 실패했습니다 (${response.statusCode})');
+    }
+
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
   Future<void> deleteAccount() async {
     final response = await http
         .delete(

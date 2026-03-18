@@ -5,9 +5,18 @@ import '../providers/auth_provider.dart';
 import '../providers/birth_info_provider.dart';
 import '../providers/fortune_provider.dart';
 import '../providers/ticket_provider.dart';
+import '../services/api_service.dart';
+import '../services/storage_service.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final _storage = StorageService();
 
   @override
   Widget build(BuildContext context) {
@@ -109,7 +118,10 @@ class LoginScreen extends StatelessWidget {
     final success = await authProvider.signInWithGoogle();
     if (success && context.mounted) {
       await _syncAfterLogin(context);
-      if (context.mounted) Navigator.of(context).pop(true);
+      if (context.mounted) {
+        await _promptReferralCode(context);
+        if (context.mounted) Navigator.of(context).pop(true);
+      }
     }
   }
 
@@ -117,7 +129,10 @@ class LoginScreen extends StatelessWidget {
     final success = await authProvider.signInWithApple();
     if (success && context.mounted) {
       await _syncAfterLogin(context);
-      if (context.mounted) Navigator.of(context).pop(true);
+      if (context.mounted) {
+        await _promptReferralCode(context);
+        if (context.mounted) Navigator.of(context).pop(true);
+      }
     }
   }
 
@@ -131,5 +146,116 @@ class LoginScreen extends StatelessWidget {
     final fortuneProvider =
         Provider.of<FortuneProvider>(context, listen: false);
     await fortuneProvider.loadFromServer(birthProvider.birthInfo);
+  }
+
+  Future<void> _promptReferralCode(BuildContext context) async {
+    // 이미 추천 코드를 입력한 적이 있으면 건너뛰기
+    if (await _storage.hasPromptedReferral()) return;
+
+    // 딥링크로 저장된 코드가 있으면 자동 적용
+    final pendingCode = await _storage.loadPendingReferralCode();
+    if (pendingCode != null && pendingCode.isNotEmpty) {
+      await _storage.clearPendingReferralCode();
+      await _storage.setReferralPrompted();
+      try {
+        final result = await ApiService().applyReferralCode(pendingCode);
+        if (context.mounted && result['applied'] == true) {
+          final ticketProvider = Provider.of<TicketProvider>(context, listen: false);
+          await ticketProvider.loadBalance();
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('추천 코드가 적용되었습니다! 보너스 티켓 3장 지급!')),
+            );
+          }
+        }
+      } catch (_) {}
+      return;
+    }
+
+    if (!context.mounted) return;
+
+    // 수동 입력 다이얼로그
+    final code = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        final controller = TextEditingController();
+        return AlertDialog(
+          title: const Text('추천인 코드'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                '추천인 코드가 있으시면 입력해 주세요.\n추천인과 본인 모두 보너스 티켓 3장을 받습니다!',
+                style: TextStyle(fontSize: 13, color: Color(0xFF6B7280), height: 1.5),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                textCapitalization: TextCapitalization.characters,
+                decoration: InputDecoration(
+                  hintText: '추천인 코드 입력',
+                  hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
+                  filled: true,
+                  fillColor: const Color(0xFFF9FAFB),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  prefixIcon: const Icon(Icons.card_giftcard, size: 20, color: Color(0xFF8A4FFF)),
+                ),
+                style: const TextStyle(fontSize: 14, letterSpacing: 2),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('건너뛰기', style: TextStyle(color: Color(0xFF9CA3AF))),
+            ),
+            FilledButton(
+              onPressed: () {
+                final text = controller.text.trim();
+                Navigator.pop(ctx, text.isNotEmpty ? text : null);
+              },
+              style: FilledButton.styleFrom(backgroundColor: const Color(0xFF8A4FFF)),
+              child: const Text('적용'),
+            ),
+          ],
+        );
+      },
+    );
+
+    await _storage.setReferralPrompted();
+
+    if (code != null && code.isNotEmpty && context.mounted) {
+      try {
+        final result = await ApiService().applyReferralCode(code);
+        if (context.mounted) {
+          if (result['applied'] == true) {
+            final ticketProvider = Provider.of<TicketProvider>(context, listen: false);
+            await ticketProvider.loadBalance();
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('추천 코드가 적용되었습니다! 보너스 티켓 3장 지급!')),
+              );
+            }
+          } else {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(result['message'] as String? ?? '추천 코드를 적용할 수 없습니다.')),
+              );
+            }
+          }
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('추천 코드 적용에 실패했습니다.')),
+          );
+        }
+      }
+    }
   }
 }

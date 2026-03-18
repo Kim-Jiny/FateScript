@@ -169,6 +169,33 @@ class StorageService {
     await saveCompatibilityHistory(history);
   }
 
+  // ── 추천인 코드 (딥링크 보관) ──
+
+  Future<void> savePendingReferralCode(String code) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('pending_referral_code', code);
+  }
+
+  Future<String?> loadPendingReferralCode() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('pending_referral_code');
+  }
+
+  Future<void> clearPendingReferralCode() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('pending_referral_code');
+  }
+
+  Future<bool> hasPromptedReferral() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('referral_prompted') ?? false;
+  }
+
+  Future<void> setReferralPrompted() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('referral_prompted', true);
+  }
+
   Future<void> clear() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keyBirthDate);

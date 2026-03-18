@@ -10,7 +10,7 @@ import 'screens/daily_screen.dart';
 import 'screens/name_screen.dart';
 import 'screens/fortune_screen.dart';
 import 'screens/compatibility_screen.dart';
-import 'screens/input_screen.dart';
+import 'services/storage_service.dart';
 import 'widgets/bottom_nav.dart';
 
 class UnmyeongDiaryApp extends StatelessWidget {
@@ -107,15 +107,11 @@ class _MainShellState extends State<MainShell> {
   }
 
   void _handleDeepLink(Uri uri) {
-    // /ref/{code} 패턴 파싱
+    // /ref/{code} 패턴 파싱 → 로그인 시 적용하도록 저장
     if (uri.pathSegments.length == 2 && uri.pathSegments[0] == 'ref') {
       final code = uri.pathSegments[1];
-      if (code.isNotEmpty && mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => InputScreen(referralCode: code),
-          ),
-        );
+      if (code.isNotEmpty) {
+        StorageService().savePendingReferralCode(code);
       }
     }
 

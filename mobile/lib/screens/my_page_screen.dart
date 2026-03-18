@@ -1,13 +1,42 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../providers/auth_provider.dart';
 import '../providers/birth_info_provider.dart';
 import '../providers/ticket_provider.dart';
+import '../services/api_service.dart';
 import 'input_screen.dart';
 import 'login_screen.dart';
 
-class MyPageScreen extends StatelessWidget {
+class MyPageScreen extends StatefulWidget {
   const MyPageScreen({super.key});
+
+  @override
+  State<MyPageScreen> createState() => _MyPageScreenState();
+}
+
+class _MyPageScreenState extends State<MyPageScreen> {
+  String? _referralCode;
+  bool _referralLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadReferralCode();
+  }
+
+  Future<void> _loadReferralCode() async {
+    setState(() => _referralLoading = true);
+    try {
+      final code = await ApiService().getReferralCode();
+      if (mounted) setState(() => _referralCode = code);
+    } catch (_) {
+      // 로그인 안 됐거나 유저 정보 없으면 무시
+    } finally {
+      if (mounted) setState(() => _referralLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,6 +59,8 @@ class MyPageScreen extends StatelessWidget {
               _profileSection(context, authProvider),
               const SizedBox(height: 20),
               _ticketSection(context),
+              const SizedBox(height: 20),
+              _referralSection(context),
               const SizedBox(height: 20),
               _sajuInfoSection(context),
               const SizedBox(height: 20),
@@ -278,6 +309,145 @@ class MyPageScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // ── 추천 코드 섹션 ──
+
+  Widget _referralSection(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.card_giftcard,
+                  color: Color(0xFF8A4FFF), size: 20),
+              const SizedBox(width: 8),
+              const Text(
+                '내 추천 코드',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1F2937),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            '친구에게 공유하면 양쪽 모두 티켓 3장!',
+            style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+          ),
+          const SizedBox(height: 14),
+          if (_referralLoading)
+            const Center(
+              child: SizedBox(
+                width: 20, height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
+          else if (_referralCode != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF8A4FFF).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _referralCode!,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF8A4FFF),
+                        letterSpacing: 3,
+                      ),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(text: _referralCode!));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('추천 코드가 복사되었습니다!'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF8A4FFF),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.copy, size: 14, color: Colors.white),
+                          SizedBox(width: 4),
+                          Text(
+                            '복사',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () {
+                      Share.share(
+                        '운명일기에서 AI 사주 분석을 받아보세요! 추천 코드를 입력하면 티켓 3장을 드려요.\nhttps://fate.jiny.shop/ref/$_referralCode',
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF8A4FFF),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.share, size: 14, color: Colors.white),
+                          SizedBox(width: 4),
+                          Text(
+                            '공유',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            const Text(
+              '추천 코드를 불러올 수 없습니다.',
+              style: TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
+            ),
+        ],
       ),
     );
   }

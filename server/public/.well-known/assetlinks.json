@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.unmyeongilgi.unmyeongilgi",
+      "sha256_cert_fingerprints": [
+        "AF:4F:FF:E3:F5:D4:C8:6A:98:86:FE:BB:D5:E9:E3:9C:08:CF:DD:1C:81:77:90:5C:4C:6A:AC:85:53:69:2B:3F",
+        "3C:E0:86:A6:88:B3:3B:52:5B:8A:24:0A:9A:C0:F0:39:CF:C6:67:1D:43:2E:F5:6A:AF:23:0F:B9:48:5D:49:E1"
+      ]
+    }
+  }
+]

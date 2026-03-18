@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'screens/home_screen.dart';
@@ -6,6 +7,7 @@ import 'screens/daily_screen.dart';
 import 'screens/name_screen.dart';
 import 'screens/fortune_screen.dart';
 import 'screens/compatibility_screen.dart';
+import 'screens/input_screen.dart';
 import 'widgets/bottom_nav.dart';
 
 class UnmyeongDiaryApp extends StatelessWidget {
@@ -75,6 +77,7 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
+  late final AppLinks _appLinks;
 
   static const _screens = [
     HomeScreen(),
@@ -83,6 +86,36 @@ class _MainShellState extends State<MainShell> {
     FortuneScreen(),
     CompatibilityScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _appLinks = AppLinks();
+    _initDeepLinks();
+  }
+
+  Future<void> _initDeepLinks() async {
+    // 앱이 링크로 시작된 경우
+    final initialUri = await _appLinks.getInitialLink();
+    if (initialUri != null) _handleDeepLink(initialUri);
+
+    // 앱이 이미 실행 중일 때 링크 수신
+    _appLinks.uriLinkStream.listen(_handleDeepLink);
+  }
+
+  void _handleDeepLink(Uri uri) {
+    // /ref/{code} 패턴 파싱
+    if (uri.pathSegments.length == 2 && uri.pathSegments[0] == 'ref') {
+      final code = uri.pathSegments[1];
+      if (code.isNotEmpty && mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => InputScreen(referralCode: code),
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

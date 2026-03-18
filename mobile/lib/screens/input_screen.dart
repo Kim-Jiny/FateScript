@@ -20,7 +20,8 @@ const _siJin = [
 ];
 
 class InputScreen extends StatefulWidget {
-  const InputScreen({super.key});
+  final String? referralCode;
+  const InputScreen({super.key, this.referralCode});
 
   @override
   State<InputScreen> createState() => _InputScreenState();
@@ -34,6 +35,7 @@ class _InputScreenState extends State<InputScreen> {
   bool _useExactTime = false;
   TimeOfDay _exactTime = const TimeOfDay(hour: 12, minute: 0);
   bool _initialized = false;
+  final _referralController = TextEditingController();
 
   static final _siJinValues = _siJin.map((e) => e.$2).toSet();
 
@@ -44,6 +46,10 @@ class _InputScreenState extends State<InputScreen> {
       _initialized = true;
       final info = context.read<BirthInfoProvider>().birthInfo;
       if (info != null) _prefill(info);
+      // 딥링크로 전달된 추천인 코드 자동 입력
+      if (widget.referralCode != null && _referralController.text.isEmpty) {
+        _referralController.text = widget.referralCode!;
+      }
     }
   }
 
@@ -91,6 +97,10 @@ class _InputScreenState extends State<InputScreen> {
             _sectionTitle('성별'),
             const SizedBox(height: 8),
             _genderToggle(),
+            const SizedBox(height: 24),
+            _sectionTitle('추천인 코드 (선택)'),
+            const SizedBox(height: 8),
+            _referralField(),
             const SizedBox(height: 36),
             _submitButton(),
           ],
@@ -336,6 +346,40 @@ class _InputScreenState extends State<InputScreen> {
     );
   }
 
+  Widget _referralField() {
+    return TextField(
+      controller: _referralController,
+      textCapitalization: TextCapitalization.characters,
+      decoration: InputDecoration(
+        hintText: '추천인 코드를 입력하세요',
+        hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFF8A4FFF)),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        prefixIcon: const Icon(Icons.card_giftcard, size: 20, color: Color(0xFF8A4FFF)),
+      ),
+      style: const TextStyle(fontSize: 14, letterSpacing: 2),
+    );
+  }
+
+  @override
+  void dispose() {
+    _referralController.dispose();
+    super.dispose();
+  }
+
   Widget _submitButton() {
     return SizedBox(
       width: double.infinity,
@@ -362,10 +406,12 @@ class _InputScreenState extends State<InputScreen> {
       time = _selectedTime ?? 'unknown';
     }
 
+    final referral = _referralController.text.trim();
     final info = BirthInfo(
       birthDate: DateFormat('yyyy-MM-dd').format(_selectedDate),
       birthTime: time,
       gender: _gender,
+      referralCode: referral.isNotEmpty ? referral : null,
     );
 
     context.read<BirthInfoProvider>().save(info);

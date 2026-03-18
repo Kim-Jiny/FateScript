@@ -8,8 +8,10 @@ import '../providers/auth_provider.dart';
 import '../providers/birth_info_provider.dart';
 import '../providers/fortune_provider.dart';
 import '../providers/ticket_provider.dart';
+import '../providers/compatibility_prefill_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/loading_overlay.dart';
+import '../widgets/share_button.dart';
 import 'input_screen.dart';
 import 'login_screen.dart';
 
@@ -57,6 +59,38 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
   void initState() {
     super.initState();
     _loadHistory();
+    // 딥링크 prefill 처리
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final prefill = context.read<CompatibilityPrefillProvider>();
+      if (prefill.hasPrefill) {
+        _applyPrefill(prefill);
+      }
+    });
+  }
+
+  void _applyPrefill(CompatibilityPrefillProvider prefill) {
+    setState(() {
+      _showNewAnalysis = true;
+      final date = DateTime.tryParse(prefill.birthDate!);
+      if (date != null) _selectedDate = date;
+      final t = prefill.birthTime;
+      if (t != null && t != 'unknown') {
+        _selectedTime = t;
+        _timeUnknown = false;
+        _useExactTime = t.contains(':');
+        if (_useExactTime) {
+          final parts = t.split(':');
+          _exactTime = TimeOfDay(
+            hour: int.tryParse(parts[0]) ?? 12,
+            minute: int.tryParse(parts[1]) ?? 0,
+          );
+        }
+      } else {
+        _timeUnknown = true;
+      }
+      _partnerGender = prefill.gender ?? 'male';
+    });
+    prefill.clear();
   }
 
   void _loadHistory() {
@@ -309,17 +343,22 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
                   controller: scrollController,
                   padding: const EdgeInsets.all(20),
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.favorite,
+                        const Icon(Icons.favorite,
                             color: Color(0xFF8A4FFF), size: 20),
-                        SizedBox(width: 8),
-                        Text(
+                        const SizedBox(width: 8),
+                        const Text(
                           '운명선생의 궁합 분석',
                           style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
                               color: Color(0xFF8A4FFF)),
+                        ),
+                        const Spacer(),
+                        ShareButton(
+                          type: 'compatibility',
+                          data: {'consultation': item.consultation},
                         ),
                       ],
                     ),
@@ -462,17 +501,22 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.favorite,
+                        const Icon(Icons.favorite,
                             color: Color(0xFF8A4FFF), size: 20),
-                        SizedBox(width: 8),
-                        Text(
+                        const SizedBox(width: 8),
+                        const Text(
                           '운명선생의 궁합 분석',
                           style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
                               color: Color(0xFF8A4FFF)),
+                        ),
+                        const Spacer(),
+                        ShareButton(
+                          type: 'compatibility',
+                          data: {'consultation': fortuneProvider.compatibilityResult!.consultation},
                         ),
                       ],
                     ),

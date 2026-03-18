@@ -128,7 +128,7 @@ router.put('/inquiries/:id', adminAuth, async (req, res) => {
 // GET /api/admin/stats — 대시보드 통계
 router.get('/stats', adminAuth, async (req, res) => {
   try {
-    const [totalUsers, todayUsers, purchases, todayConsumption, activeUsers, serviceUsage] = await Promise.all([
+    const [totalUsers, todayUsers, purchases, todayConsumption, activeUsers, serviceUsage, totalReferrals] = await Promise.all([
       pool.query('SELECT COUNT(*) AS count FROM users'),
       pool.query("SELECT COUNT(*) AS count FROM users WHERE created_at >= CURRENT_DATE"),
       pool.query("SELECT COUNT(*) AS count, COALESCE(SUM(amount), 0) AS total_tickets FROM ticket_transactions WHERE type = 'purchase'"),
@@ -147,6 +147,7 @@ router.get('/stats', adminAuth, async (req, res) => {
         GROUP BY ref_id
         ORDER BY count DESC
       `),
+      pool.query('SELECT COUNT(*) AS count FROM referrals'),
     ]);
 
     res.json({
@@ -157,6 +158,7 @@ router.get('/stats', adminAuth, async (req, res) => {
       todayConsumption: parseInt(todayConsumption.rows[0].count),
       activeUsers7d: parseInt(activeUsers.rows[0].count),
       serviceUsage: serviceUsage.rows,
+      totalReferrals: parseInt(totalReferrals.rows[0].count),
     });
   } catch (error) {
     console.error('Get stats error:', error);
@@ -215,12 +217,14 @@ router.get('/users/:uid', adminAuth, async (req, res) => {
   try {
     const { uid } = req.params;
 
-    const [userResult, balanceResult, txResult, resultsCount, compatCount] = await Promise.all([
+    const [userResult, balanceResult, txResult, resultsCount, compatCount, referralsMade, referredBy] = await Promise.all([
       pool.query('SELECT * FROM users WHERE uid = $1', [uid]),
       pool.query('SELECT balance FROM tickets WHERE uid = $1', [uid]),
       pool.query('SELECT * FROM ticket_transactions WHERE uid = $1 ORDER BY created_at DESC LIMIT 50', [uid]),
       pool.query('SELECT COUNT(*) AS count FROM user_results WHERE uid = $1', [uid]),
       pool.query('SELECT COUNT(*) AS count FROM compatibility_history WHERE uid = $1', [uid]),
+      pool.query('SELECT COUNT(*) AS count FROM referrals WHERE referrer_uid = $1', [uid]),
+      pool.query(`SELECT r.referrer_uid, u.email AS referrer_email FROM referrals r LEFT JOIN users u ON u.uid = r.referrer_uid WHERE r.referred_uid = $1`, [uid]),
     ]);
 
     if (userResult.rows.length === 0) {
@@ -233,6 +237,8 @@ router.get('/users/:uid', adminAuth, async (req, res) => {
       transactions: txResult.rows,
       resultsCount: parseInt(resultsCount.rows[0].count),
       compatibilityCount: parseInt(compatCount.rows[0].count),
+      referralsMade: parseInt(referralsMade.rows[0].count),
+      referredBy: referredBy.rows[0] || null,
     });
   } catch (error) {
     console.error('Get user detail error:', error);

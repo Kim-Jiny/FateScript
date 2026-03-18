@@ -7,6 +7,7 @@ import 'providers/auth_provider.dart';
 import 'providers/birth_info_provider.dart';
 import 'providers/fortune_provider.dart';
 import 'providers/ticket_provider.dart';
+import 'providers/compatibility_prefill_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -46,6 +47,8 @@ void main() async {
     fortuneProvider.clearAllSaved();
   };
 
+  final compatPrefillProvider = CompatibilityPrefillProvider();
+
   runApp(
     MultiProvider(
       providers: [
@@ -53,6 +56,7 @@ void main() async {
         ChangeNotifierProvider.value(value: birthInfoProvider),
         ChangeNotifierProvider.value(value: fortuneProvider),
         ChangeNotifierProvider.value(value: ticketProvider),
+        ChangeNotifierProvider.value(value: compatPrefillProvider),
       ],
       child: const UnmyeongDiaryApp(),
     ),

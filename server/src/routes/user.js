@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import pool from '../config/db.js';
@@ -5,13 +6,17 @@ import { getUserResults } from '../services/fortune.js';
 
 const router = Router();
 
+function generateReferralCode() {
+  return crypto.randomBytes(4).toString('hex').toUpperCase(); // 8자리
+}
+
 /**
  * POST /api/user/saju — 사주 저장/업데이트
  */
 router.post('/saju', requireAuth, async (req, res) => {
   try {
     console.log(`[user/saju] POST uid=${req.uid} email=${req.userEmail} body=${JSON.stringify(req.body)}`);
-    const { birthDate, birthTime, gender } = req.body ?? {};
+    const { birthDate, birthTime, gender, referralCode } = req.body ?? {};
 
     if (!birthDate || !gender) {
       console.log('[user/saju] Missing required fields');
@@ -40,12 +45,127 @@ router.post('/saju', requireAuth, async (req, res) => {
          VALUES ($1, 'signup_bonus', 3, 3, 'signup')`,
         [req.uid],
       );
+
+      // 신규 유저에게 referral_code 생성
+      let code = generateReferralCode();
+      for (let i = 0; i < 5; i++) {
+        try {
+          await pool.query(
+            'UPDATE users SET referral_code = $1 WHERE uid = $2 AND referral_code IS NULL',
+            [code, req.uid],
+          );
+          break;
+        } catch {
+          code = generateReferralCode();
+        }
+      }
+
+      // 추천인 코드 처리
+      if (referralCode && typeof referralCode === 'string' && referralCode.trim()) {
+        try {
+          const referrerResult = await pool.query(
+            'SELECT uid FROM users WHERE referral_code = $1',
+            [referralCode.trim().toUpperCase()],
+          );
+
+          if (referrerResult.rows.length > 0) {
+            const referrerUid = referrerResult.rows[0].uid;
+
+            // 자기 추천 방지
+            if (referrerUid !== req.uid) {
+              const client = await pool.connect();
+              try {
+                await client.query('BEGIN');
+
+                // referrals에 기록 (UNIQUE 제약으로 중복 방지)
+                await client.query(
+                  'INSERT INTO referrals (referrer_uid, referred_uid) VALUES ($1, $2)',
+                  [referrerUid, req.uid],
+                );
+
+                // 추천인 티켓 +3
+                await client.query(
+                  `INSERT INTO tickets (uid, balance, updated_at) VALUES ($1, 3, now())
+                   ON CONFLICT (uid) DO UPDATE SET balance = tickets.balance + 3, updated_at = now()`,
+                  [referrerUid],
+                );
+                const referrerBal = await client.query('SELECT balance FROM tickets WHERE uid = $1', [referrerUid]);
+                await client.query(
+                  `INSERT INTO ticket_transactions (uid, type, amount, balance_after, ref_id)
+                   VALUES ($1, 'referral_bonus', 3, $2, $3)`,
+                  [referrerUid, referrerBal.rows[0].balance, `referral:${req.uid}`],
+                );
+
+                // 입력자 티켓 +3
+                await client.query(
+                  `UPDATE tickets SET balance = balance + 3, updated_at = now() WHERE uid = $1`,
+                  [req.uid],
+                );
+                const myBal = await client.query('SELECT balance FROM tickets WHERE uid = $1', [req.uid]);
+                await client.query(
+                  `INSERT INTO ticket_transactions (uid, type, amount, balance_after, ref_id)
+                   VALUES ($1, 'referral_bonus', 3, $2, $3)`,
+                  [req.uid, myBal.rows[0].balance, `referral:${referrerUid}`],
+                );
+
+                await client.query('COMMIT');
+                console.log(`[user/saju] Referral bonus applied: referrer=${referrerUid}, referred=${req.uid}`);
+              } catch (refErr) {
+                await client.query('ROLLBACK');
+                // 중복 추천 등은 조용히 무시
+                console.log(`[user/saju] Referral skipped: ${refErr.message}`);
+              } finally {
+                client.release();
+              }
+            }
+          }
+        } catch (refErr) {
+          console.log(`[user/saju] Referral code lookup failed: ${refErr.message}`);
+        }
+      }
     }
 
     res.json({ ok: true });
   } catch (err) {
     console.error('[user/saju] Save saju error:', err);
     res.status(500).json({ error: '사주 저장 중 오류가 발생했습니다.' });
+  }
+});
+
+/**
+ * GET /api/user/referral-code — 내 추천 코드 조회 (없으면 생성)
+ */
+router.get('/referral-code', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT referral_code FROM users WHERE uid = $1',
+      [req.uid],
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: '유저 정보가 없습니다.' });
+    }
+
+    let code = rows[0].referral_code;
+    if (!code) {
+      code = generateReferralCode();
+      for (let i = 0; i < 5; i++) {
+        try {
+          await pool.query(
+            'UPDATE users SET referral_code = $1 WHERE uid = $2',
+            [code, req.uid],
+          );
+          break;
+        } catch {
+          code = generateReferralCode();
+        }
+      }
+    }
+
+    res.json({ referralCode: code });
+  } catch (err) {
+    console.error('Get referral code error:', err);
+    res.status(500).json({ error: '추천 코드 조회 중 오류가 발생했습니다.' });
   }
 });
 
@@ -95,6 +215,7 @@ router.delete('/account', requireAuth, async (req, res) => {
   try {
     const uid = req.uid;
 
+    await pool.query('DELETE FROM referrals WHERE referrer_uid = $1 OR referred_uid = $1', [uid]);
     await pool.query('DELETE FROM ticket_transactions WHERE uid = $1', [uid]);
     await pool.query('DELETE FROM tickets WHERE uid = $1', [uid]);
     await pool.query('DELETE FROM compatibility_history WHERE uid = $1', [uid]);

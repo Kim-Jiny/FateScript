@@ -7,6 +7,7 @@ import '../providers/fortune_provider.dart';
 import '../providers/ticket_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/loading_overlay.dart';
+import '../widgets/share_button.dart';
 import 'input_screen.dart';
 import 'login_screen.dart';
 
@@ -146,6 +147,16 @@ class DailyScreen extends StatelessWidget {
               children: [
                 const Text('오늘의 운세', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
                 const Spacer(),
+                ShareButton(
+                  type: 'daily',
+                  data: {
+                    'date': daily.date,
+                    'iljinHanja': daily.iljinHanja,
+                    'iljinHangul': daily.iljinHangul,
+                    'reading': daily.reading,
+                  },
+                ),
+                const SizedBox(width: 12),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(

@@ -6,13 +6,13 @@ import { getSajuInfo, getTodayIljin } from './saju.js';
 const MODEL = 'gemini-2.5-flash';
 
 // ── Gemini 호출 ────────────────────────────────────
-async function askGemini(userPrompt, systemPrompt) {
+async function askGemini(userPrompt, systemPrompt, { maxOutputTokens = 8192 } = {}) {
   const response = await ai.models.generateContent({
     model: MODEL,
     contents: userPrompt,
     config: {
       systemInstruction: systemPrompt,
-      maxOutputTokens: 8192,
+      maxOutputTokens,
       temperature: 0.8,
     },
   });
@@ -92,8 +92,26 @@ function parseFortuneResponse(text) {
     };
   }
 
-  // JSON 파싱 실패 시 fallback: 전체 텍스트를 interpretation으로
-  return { manseryeok: text, yearFortune: '', interpretation: text, categories: [] };
+  // JSON 파싱 실패 시 (truncated 응답 등): ```json 코드펜스 제거 후 문자열 값 추출 시도
+  let cleaned = text;
+  const fenceMatch = text.match(/^```(?:json)?\s*\n?([\s\S]*)/);
+  if (fenceMatch) {
+    cleaned = fenceMatch[1].replace(/\n?```\s*$/, '');
+  }
+
+  // truncated JSON에서 "manseryeok": "..." 값을 regex로 추출
+  let manseryeok = cleaned;
+  let yearFortune = '';
+  const mMatch = cleaned.match(/"manseryeok"\s*:\s*"((?:[^"\\]|\\.)*)"/s);
+  if (mMatch) {
+    try { manseryeok = JSON.parse('"' + mMatch[1] + '"'); } catch { manseryeok = mMatch[1]; }
+  }
+  const yMatch = cleaned.match(/"yearFortune"\s*:\s*"((?:[^"\\]|\\.)*)"/s);
+  if (yMatch) {
+    try { yearFortune = JSON.parse('"' + yMatch[1] + '"'); } catch { yearFortune = yMatch[1]; }
+  }
+
+  return { manseryeok, yearFortune, interpretation: manseryeok, categories: [] };
 }
 
 /**
@@ -115,7 +133,7 @@ export async function interpretFortune({ year, month, day, hour, minute, gender 
 
   const sajuInfo = getSajuInfo(year, month, day, hour, minute);
   const prompt = buildFortunePrompt(sajuInfo, gender);
-  const rawText = await askGemini(prompt, getSystemPrompt('year'));
+  const rawText = await askGemini(prompt, getSystemPrompt('year'), { maxOutputTokens: 32768 });
   const { manseryeok, yearFortune, interpretation, categories } = parseFortuneResponse(rawText);
 
   const result = {

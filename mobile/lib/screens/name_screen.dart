@@ -12,6 +12,7 @@ import '../providers/ticket_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/hanja_selector.dart';
 import '../widgets/loading_overlay.dart';
+import '../widgets/share_button.dart';
 import 'login_screen.dart';
 
 const _siJin = [
@@ -607,6 +608,11 @@ class _NameScreenState extends State<NameScreen> {
                     color: Color(0xFF8A4FFF)),
               ),
               const Spacer(),
+              ShareButton(
+                type: 'name_analysis',
+                data: result.toJson(),
+              ),
+              const SizedBox(width: 10),
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -838,16 +844,21 @@ class _NameScreenState extends State<NameScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.auto_awesome, color: Color(0xFF8A4FFF), size: 20),
-              SizedBox(width: 8),
-              Text(
+              const Icon(Icons.auto_awesome, color: Color(0xFF8A4FFF), size: 20),
+              const SizedBox(width: 8),
+              const Text(
                 '추천 이름',
                 style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF8A4FFF)),
+              ),
+              const Spacer(),
+              ShareButton(
+                type: 'name_recommend',
+                data: result.toJson(),
               ),
             ],
           ),

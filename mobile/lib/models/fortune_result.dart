@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class SajuPillar {
   final String hangul;
   final String hanja;
@@ -107,6 +109,21 @@ class FortuneResult {
   factory FortuneResult.fromJson(Map<String, dynamic> json) {
     final saju = json['saju'] as Map<String, dynamic>;
     final rawCategories = json['categories'] as List<dynamic>?;
+
+    var rawManseryeok = (json['manseryeok'] as String?) ?? '';
+    var rawYearFortune = (json['yearFortune'] as String?) ?? '';
+    var rawInterpretation = (json['interpretation'] as String?) ?? rawManseryeok;
+
+    // ```json 코드펜스로 감싸진 AI 응답 정리
+    final cleaned = _cleanJsonFence(rawManseryeok.isNotEmpty ? rawManseryeok : rawInterpretation);
+    if (cleaned != null) {
+      rawManseryeok = cleaned['manseryeok'] ?? rawManseryeok;
+      rawInterpretation = cleaned['manseryeok'] ?? rawInterpretation;
+      if (rawYearFortune.isEmpty && cleaned['yearFortune'] != null) {
+        rawYearFortune = cleaned['yearFortune']!;
+      }
+    }
+
     return FortuneResult(
       yearPillar:
           SajuPillar.fromJson(saju['yearPillar'] as Map<String, dynamic>),
@@ -118,17 +135,55 @@ class FortuneResult {
           ? SajuPillar.fromJson(saju['hourPillar'] as Map<String, dynamic>)
           : null,
       oheng: OhengInfo.fromJson(json['oheng'] as Map<String, dynamic>),
-      manseryeok: (json['manseryeok'] as String?) ?? '',
-      yearFortune: (json['yearFortune'] as String?) ?? '',
-      interpretation: (json['interpretation'] as String?) ??
-          (json['manseryeok'] as String?) ??
-          '',
+      manseryeok: rawManseryeok,
+      yearFortune: rawYearFortune,
+      interpretation: rawInterpretation,
       categories: rawCategories
               ?.map((e) =>
                   FortuneCategory.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
     );
+  }
+
+  /// ```json { "manseryeok": "..." } ``` 형태의 AI 응답에서 실제 내용 추출
+  static Map<String, String>? _cleanJsonFence(String text) {
+    final match = RegExp(r'^```(?:json)?\s*\n?([\s\S]*)').firstMatch(text);
+    if (match == null) return null;
+
+    var inner = match.group(1) ?? '';
+    inner = inner.replaceAll(RegExp(r'\n?```\s*$'), '');
+
+    // 정상 JSON 파싱 시도
+    try {
+      final parsed = Map<String, dynamic>.from(
+        (const JsonDecoder().convert(inner)) as Map,
+      );
+      return {
+        if (parsed['manseryeok'] is String) 'manseryeok': parsed['manseryeok'] as String,
+        if (parsed['yearFortune'] is String) 'yearFortune': parsed['yearFortune'] as String,
+      };
+    } catch (_) {}
+
+    // truncated JSON: regex로 "manseryeok": "..." 추출
+    final result = <String, String>{};
+    final mMatch = RegExp(r'"manseryeok"\s*:\s*"((?:[^"\\]|\\.)*)"').firstMatch(inner);
+    if (mMatch != null) {
+      try {
+        result['manseryeok'] = const JsonDecoder().convert('"${mMatch.group(1)}"') as String;
+      } catch (_) {
+        result['manseryeok'] = mMatch.group(1) ?? '';
+      }
+    }
+    final yMatch = RegExp(r'"yearFortune"\s*:\s*"((?:[^"\\]|\\.)*)"').firstMatch(inner);
+    if (yMatch != null) {
+      try {
+        result['yearFortune'] = const JsonDecoder().convert('"${yMatch.group(1)}"') as String;
+      } catch (_) {
+        result['yearFortune'] = yMatch.group(1) ?? '';
+      }
+    }
+    return result.isEmpty ? null : result;
   }
 
   Map<String, dynamic> toJson() => {

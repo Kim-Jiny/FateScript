@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'providers/fortune_provider.dart';
+import 'providers/compatibility_prefill_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/daily_screen.dart';
 import 'screens/name_screen.dart';
@@ -115,6 +116,21 @@ class _MainShellState extends State<MainShell> {
             builder: (_) => InputScreen(referralCode: code),
           ),
         );
+      }
+    }
+
+    // /compat?birthDate=...&birthTime=...&gender=... 궁합 딥링크
+    if (uri.pathSegments.length == 1 && uri.pathSegments[0] == 'compat') {
+      final birthDate = uri.queryParameters['birthDate'];
+      final birthTime = uri.queryParameters['birthTime'] ?? 'unknown';
+      final gender = uri.queryParameters['gender'] ?? 'male';
+      if (birthDate != null && birthDate.isNotEmpty && mounted) {
+        context.read<CompatibilityPrefillProvider>().setPrefill(
+          birthDate: birthDate,
+          birthTime: birthTime,
+          gender: gender,
+        );
+        setState(() => _currentIndex = 4); // 궁합 탭
       }
     }
   }

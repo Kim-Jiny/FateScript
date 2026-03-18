@@ -184,6 +184,22 @@ class ApiService {
     );
   }
 
+  Future<String> getReferralCode() async {
+    final response = await http
+        .get(
+          Uri.parse('$_baseUrl/api/user/referral-code'),
+          headers: _headers,
+        )
+        .timeout(_timeout);
+
+    if (response.statusCode != 200) {
+      throw Exception('추천 코드 조회에 실패했습니다 (${response.statusCode})');
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return json['referralCode'] as String;
+  }
+
   Future<void> deleteAccount() async {
     final response = await http
         .delete(
@@ -379,6 +395,39 @@ class ApiService {
           headers: _headers,
         )
         .timeout(_timeout);
+  }
+
+  // ── Share API ──
+
+  Future<String> shareResult({
+    required String type,
+    required Map<String, dynamic> data,
+    String? birthDate,
+    String? birthTime,
+    String? gender,
+  }) async {
+    final body = <String, dynamic>{
+      'type': type,
+      'data': data,
+    };
+    if (birthDate != null) body['birthDate'] = birthDate;
+    if (birthTime != null) body['birthTime'] = birthTime;
+    if (gender != null) body['gender'] = gender;
+
+    final response = await http
+        .post(
+          Uri.parse('$_baseUrl/api/share'),
+          headers: _headers,
+          body: jsonEncode(body),
+        )
+        .timeout(_timeout);
+
+    if (response.statusCode != 200) {
+      throw Exception('공유 URL 생성에 실패했습니다 (${response.statusCode})');
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return json['shareUrl'] as String;
   }
 
   // ── Compatibility History API ──

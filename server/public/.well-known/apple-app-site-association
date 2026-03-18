@@ -4,7 +4,7 @@
     "details": [
       {
         "appID": "HW9XJ9J5M2.com.unmyeongilgi.unmyeongilgi",
-        "paths": ["/ref/*"]
+        "paths": ["/ref/*", "/s/*", "/compat"]
       }
     ]
   }

@@ -184,6 +184,7 @@
         <div class="stat-card"><div class="label">총 구매 건수</div><div class="value" id="statPurchaseCount">-</div><div class="sub" id="statPurchaseTickets"></div></div>
         <div class="stat-card"><div class="label">오늘 티켓 소모</div><div class="value" id="statTodayConsumption">-</div></div>
         <div class="stat-card"><div class="label">7일 활성 유저</div><div class="value" id="statActiveUsers">-</div></div>
+        <div class="stat-card"><div class="label">총 추천 건수</div><div class="value" id="statTotalReferrals">-</div></div>
       </div>
       <h3 style="font-size:15px;font-weight:700;margin-bottom:12px">서비스별 소모 내역</h3>
       <table class="service-table">
@@ -351,6 +352,7 @@ const SERVICE_NAMES = {
   name_analyze: '이름해석 (1장)',
   name_recommend: '이름추천 (2장)',
   signup: '가입보너스',
+  referral_bonus: '추천보너스',
 };
 
 async function loadDashboard() {
@@ -365,6 +367,7 @@ async function loadDashboard() {
     document.getElementById('statPurchaseTickets').textContent = `총 ${data.purchaseTickets.toLocaleString()}장`;
     document.getElementById('statTodayConsumption').textContent = data.todayConsumption.toLocaleString() + '건';
     document.getElementById('statActiveUsers').textContent = data.activeUsers7d.toLocaleString();
+    document.getElementById('statTotalReferrals').textContent = (data.totalReferrals || 0).toLocaleString();
 
     const tbody = document.getElementById('serviceBody');
     if (!data.serviceUsage || data.serviceUsage.length === 0) {
@@ -481,10 +484,16 @@ async function openUserDetail(uid) {
         <div class="field"><div class="label">수정일</div><div class="val">${fmtDate(u.updated_at)}</div></div>
       </div>
 
-      <div class="mini-cards">
+      <div class="mini-cards" style="grid-template-columns:repeat(4,1fr)">
         <div class="mini-card"><div class="num">${data.balance}</div><div class="lbl">보유 티켓</div></div>
         <div class="mini-card"><div class="num">${data.resultsCount}</div><div class="lbl">저장된 결과</div></div>
         <div class="mini-card"><div class="num">${data.compatibilityCount}</div><div class="lbl">궁합 히스토리</div></div>
+        <div class="mini-card"><div class="num">${data.referralsMade || 0}</div><div class="lbl">추천한 수</div></div>
+      </div>
+
+      <div class="user-detail-grid" style="grid-template-columns:1fr 1fr;margin-bottom:8px">
+        <div class="field"><div class="label">추천 코드</div><div class="val" style="color:#8A4FFF;letter-spacing:2px">${esc(u.referral_code || '-')}</div></div>
+        <div class="field"><div class="label">추천인</div><div class="val">${data.referredBy ? esc(data.referredBy.referrer_email || data.referredBy.referrer_uid) : '없음'}</div></div>
       </div>
 
       <div class="section-title">티켓 지급</div>

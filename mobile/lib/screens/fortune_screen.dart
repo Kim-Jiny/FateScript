@@ -10,6 +10,7 @@ import '../services/api_service.dart';
 import '../widgets/pillar_card.dart';
 import '../widgets/oheng_chart.dart';
 import '../widgets/loading_overlay.dart';
+import '../widgets/share_button.dart';
 import 'input_screen.dart';
 import 'login_screen.dart';
 
@@ -169,8 +170,20 @@ class _FortuneScreenState extends State<FortuneScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 8),
-            const Text('내 사주팔자',
-                style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
+            Row(
+              children: [
+                const Text('내 사주팔자',
+                    style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
+                const Spacer(),
+                ShareButton(
+                  type: 'fortune',
+                  data: result.toJson(),
+                  birthDate: birthProvider.birthInfo?.birthDate,
+                  birthTime: birthProvider.birthInfo?.birthTime,
+                  gender: birthProvider.birthInfo?.gender,
+                ),
+              ],
+            ),
             const SizedBox(height: 16),
             // 사주 기둥
             Row(

@@ -124,6 +124,37 @@ export async function initDb() {
       created_at TIMESTAMPTZ DEFAULT now(),
       updated_at TIMESTAMPTZ DEFAULT now()
     );
+
+    CREATE TABLE IF NOT EXISTS referrals (
+      id SERIAL PRIMARY KEY,
+      referrer_uid TEXT NOT NULL,
+      referred_uid TEXT NOT NULL UNIQUE,
+      created_at TIMESTAMPTZ DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals(referrer_uid);
+
+    CREATE TABLE IF NOT EXISTS shared_results (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL,
+      data JSONB NOT NULL,
+      birth_date TEXT,
+      birth_time TEXT,
+      gender TEXT,
+      created_at TIMESTAMPTZ DEFAULT now()
+    );
+  `);
+
+  // 안전하게 referral_code 컬럼 추가
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'users' AND column_name = 'referral_code'
+      ) THEN
+        ALTER TABLE users ADD COLUMN referral_code TEXT UNIQUE;
+      END IF;
+    END $$;
   `);
 
   console.log('DB tables initialized');

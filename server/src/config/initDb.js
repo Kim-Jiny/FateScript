@@ -157,5 +157,19 @@ export async function initDb() {
     END $$;
   `);
 
+  // ```json 코드펜스가 포함된 깨진 사주 캐시 삭제 (토큰 부족으로 잘린 응답)
+  const { rowCount } = await pool.query(`
+    DELETE FROM fortune_cache
+    WHERE result::text LIKE '%\`\`\`json%'
+  `);
+  if (rowCount > 0) console.log(`[initDb] Deleted ${rowCount} broken fortune caches`);
+
+  // user_results에서도 깨진 fortune 결과 삭제
+  const { rowCount: urCount } = await pool.query(`
+    DELETE FROM user_results
+    WHERE type = 'fortune' AND result::text LIKE '%\`\`\`json%'
+  `);
+  if (urCount > 0) console.log(`[initDb] Deleted ${urCount} broken user fortune results`);
+
   console.log('DB tables initialized');
 }

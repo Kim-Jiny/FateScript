@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:provider/provider.dart';
+import 'providers/fortune_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/daily_screen.dart';
 import 'screens/name_screen.dart';
@@ -126,7 +128,11 @@ class _MainShellState extends State<MainShell> {
       ),
       bottomNavigationBar: AppBottomNav(
         currentIndex: _currentIndex,
-        onTap: (i) => setState(() => _currentIndex = i),
+        onTap: (i) {
+          final isLoading = context.read<FortuneProvider>().isLoading;
+          if (isLoading) return;
+          setState(() => _currentIndex = i);
+        },
       ),
     );
   }

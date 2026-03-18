@@ -388,7 +388,7 @@ app.get('/og/:id.png', async (req, res) => {
     if (rows.length === 0) return res.status(404).send('Not found');
     const row = rows[0];
     const data = typeof row.data === 'string' ? JSON.parse(row.data) : row.data;
-    const png = await generateOgImage(row.type, data);
+    const png = await generateOgImage(row.type);
     res.set({ 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' });
     res.send(png);
   } catch (err) {

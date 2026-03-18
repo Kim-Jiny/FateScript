@@ -15,7 +15,6 @@ import inquiryRoutes from './routes/inquiry.js';
 import adminRoutes from './routes/admin.js';
 import shareRoutes from './routes/share.js';
 import pool from './config/db.js';
-import { generateOgImage } from './utils/ogImage.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -381,19 +380,18 @@ app.get('/s/:id', async (req, res) => {
   }
 });
 
-// ── OG 이미지 생성 ──
+// ── OG 이미지 (정적 파일) ──
 app.get('/og/:id.png', async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT type, data FROM shared_results WHERE id = $1', [req.params.id]);
+    const { rows } = await pool.query('SELECT type FROM shared_results WHERE id = $1', [req.params.id]);
     if (rows.length === 0) return res.status(404).send('Not found');
-    const row = rows[0];
-    const data = typeof row.data === 'string' ? JSON.parse(row.data) : row.data;
-    const png = await generateOgImage(row.type);
-    res.set({ 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' });
-    res.send(png);
+    const type = rows[0].type || 'fortune';
+    const filePath = path.join(__dirname, '..', 'public', 'og', `${type}.png`);
+    res.set({ 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=604800' });
+    res.sendFile(filePath);
   } catch (err) {
     console.error('og image error:', err);
-    res.status(500).send('Image generation failed');
+    res.status(500).send('Image not found');
   }
 });
 

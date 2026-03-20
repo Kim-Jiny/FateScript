@@ -6,10 +6,9 @@ import 'package:provider/provider.dart';
 import 'providers/fortune_provider.dart';
 import 'providers/compatibility_prefill_provider.dart';
 import 'screens/home_screen.dart';
-import 'screens/daily_screen.dart';
-import 'screens/name_screen.dart';
-import 'screens/fortune_screen.dart';
+import 'screens/saju_hub_screen.dart';
 import 'screens/compatibility_screen.dart';
+import 'screens/my_page_screen.dart';
 import 'services/storage_service.dart';
 import 'widgets/bottom_nav.dart';
 
@@ -84,10 +83,9 @@ class _MainShellState extends State<MainShell> {
 
   static const _screens = [
     HomeScreen(),
-    DailyScreen(),
-    NameScreen(),
-    FortuneScreen(),
+    SajuHubScreen(),
     CompatibilityScreen(),
+    MyPageScreen(),
   ];
 
   @override
@@ -126,7 +124,7 @@ class _MainShellState extends State<MainShell> {
           birthTime: birthTime,
           gender: gender,
         );
-        setState(() => _currentIndex = 4); // 궁합 탭
+        setState(() => _currentIndex = 2); // 궁합 탭
       }
     }
   }

@@ -242,3 +242,90 @@ export function buildCompatibilityPrompt(mySaju, partnerSaju, myGender, partnerG
 6. **주의할 점** - 갈등이 생길 수 있는 부분과 해결 방법
 7. **운명선생의 궁합 한마디** - 따뜻한 격려와 응원`;
 }
+
+/**
+ * 택일/길일추천 프롬프트
+ */
+export function buildAuspiciousDatePrompt(sajuInfo, top5Dates, eventType) {
+  const { saju, oheng } = sajuInfo;
+
+  const eventLabels = {
+    move: '이사',
+    wedding: '결혼',
+    business: '개업',
+    travel: '여행',
+    interview: '면접',
+  };
+  const eventText = eventLabels[eventType] ?? eventType;
+
+  const datesInfo = top5Dates.map((d, i) =>
+    `${i + 1}위: ${d.date} — 일진: ${d.pillar}(${d.pillarHanja}), 상생점수: ${d.score}점`
+  ).join('\n');
+
+  return `## 택일/길일추천 요청
+
+**행사 유형**: ${eventText}
+
+### 내 사주
+| 년주 | 월주 | 일주 | 시주 |
+|------|------|------|------|
+| ${saju.yearPillar.hangul} | ${saju.monthPillar.hangul} | ${saju.dayPillar.hangul} | ${saju.hourPillar?.hangul ?? '미상'} |
+
+### 내 오행 분포
+${oheng.summary}
+- 강한 오행: ${oheng.dominant} (${oheng.dominantInfo.emoji})
+- 약한 오행: ${oheng.weak} (${oheng.weakInfo.emoji})
+
+### 추천 후보 날짜 (오행 상생 점수 기준 상위 5일)
+${datesInfo}
+
+위 5개 날짜에 대해 다음을 마크다운으로 분석해 주세요:
+1. **각 날짜가 왜 좋은지** - 일진과 사주의 관계, 오행 상생 분석
+2. **주의할 점** - 각 날짜의 잠재적 주의사항
+3. **최종 추천** - 가장 추천하는 날짜와 그 이유
+4. **${eventText} 관련 종합 조언** - 사주로 본 ${eventText}에 대한 구체적 조언`;
+}
+
+/**
+ * 팀 궁합 분석 프롬프트
+ */
+export function buildTeamCompatibilityPrompt(memberSajuList, relationship) {
+  const relationshipLabels = {
+    team: '팀/프로젝트',
+    friends: '친구 모임',
+    family: '가족',
+    business: '비즈니스 파트너',
+  };
+  const relText = relationshipLabels[relationship] ?? relationship;
+
+  let membersSection = '';
+  for (const member of memberSajuList) {
+    const genderText = member.gender === 'male' ? '남성' : '여성';
+    membersSection += `
+### ${member.name} (${genderText})
+| 년주 | 월주 | 일주 | 시주 |
+|------|------|------|------|
+| ${member.saju.yearPillar.hangul} | ${member.saju.monthPillar.hangul} | ${member.saju.dayPillar.hangul} | ${member.saju.hourPillar?.hangul ?? '미상'} |
+
+**오행**: ${member.oheng.summary}
+- 강한 오행: ${member.oheng.dominant} (${member.oheng.dominantInfo.emoji})
+- 약한 오행: ${member.oheng.weak} (${member.oheng.weakInfo.emoji})
+`;
+  }
+
+  return `## 팀 궁합 분석 요청
+
+**관계 유형**: ${relText}
+**인원**: ${memberSajuList.length}명
+
+${membersSection}
+
+위 ${memberSajuList.length}명의 사주를 종합 분석하여 다음을 마크다운으로 알려주세요:
+1. **팀 궁합 총점** (⭐ 100점 만점)
+2. **팀 오행 분포 분석** - 전체 팀의 오행 균형, 부족한/과잉한 오행
+3. **주요 페어별 궁합** - 특히 잘 맞는 조합과 주의가 필요한 조합
+4. **팀 역학과 역할 분석** - 각 멤버가 팀에서 맡으면 좋을 역할
+5. **갈등 요소와 해결 방안** - 잠재적 갈등 지점과 극복법
+6. **팀 시너지 포인트** - 이 팀의 강점과 잘할 수 있는 분야
+7. **운명선생의 팀 궁합 한마디** - 따뜻한 격려와 팀 조언`;
+}

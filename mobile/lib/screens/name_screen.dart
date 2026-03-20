@@ -14,6 +14,7 @@ import '../services/api_service.dart';
 import '../widgets/hanja_selector.dart';
 import '../widgets/loading_overlay.dart';
 import '../widgets/share_button.dart';
+import '../widgets/pdf_button.dart';
 import 'login_screen.dart';
 
 const _siJin = [
@@ -97,13 +98,16 @@ class _NameScreenState extends State<NameScreen> {
     final fortuneProvider = context.watch<FortuneProvider>();
 
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('성명학'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
       body: Stack(
         children: [
-          SafeArea(
-            child: _showNewInput
-                ? _newInputView(birthProvider, fortuneProvider)
-                : _historyView(fortuneProvider),
-          ),
+          _showNewInput
+              ? _newInputView(birthProvider, fortuneProvider)
+              : _historyView(fortuneProvider),
           if (fortuneProvider.isLoading)
             LoadingOverlay(
               message: _isRecommendMode
@@ -920,6 +924,11 @@ class _NameScreenState extends State<NameScreen> {
                     color: Color(0xFF8A4FFF)),
               ),
               const Spacer(),
+              PdfButton(
+                type: 'name_analysis',
+                data: result.toJson(),
+              ),
+              const SizedBox(width: 8),
               ShareButton(
                 type: 'name_analysis',
                 data: result.toJson(),

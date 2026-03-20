@@ -8,6 +8,7 @@ import '../providers/ticket_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/loading_overlay.dart';
 import '../widgets/share_button.dart';
+import '../widgets/pdf_button.dart';
 import 'input_screen.dart';
 import 'login_screen.dart';
 
@@ -26,13 +27,16 @@ class DailyScreen extends StatelessWidget {
     final daily = fortuneProvider.dailyFortune;
 
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('오늘의 운세'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
       body: Stack(
         children: [
-          SafeArea(
-            child: daily == null
-                ? _emptyState(context, birthProvider, fortuneProvider)
-                : _resultView(context, daily, fortuneProvider, birthProvider),
-          ),
+          daily == null
+              ? _emptyState(context, birthProvider, fortuneProvider)
+              : _resultView(context, daily, fortuneProvider, birthProvider),
           if (fortuneProvider.isLoading)
             const LoadingOverlay(message: '운명선생이 오늘의 운세를 살피고 있습니다...'),
         ],
@@ -144,6 +148,16 @@ class DailyScreen extends StatelessWidget {
               children: [
                 const Text('오늘의 운세', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
                 const Spacer(),
+                PdfButton(
+                  type: 'daily',
+                  data: {
+                    'date': daily.date,
+                    'iljinHanja': daily.iljinHanja,
+                    'iljinHangul': daily.iljinHangul,
+                    'reading': daily.reading,
+                  },
+                ),
+                const SizedBox(width: 12),
                 ShareButton(
                   type: 'daily',
                   data: {

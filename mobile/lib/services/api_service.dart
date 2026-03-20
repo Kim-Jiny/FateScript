@@ -507,6 +507,126 @@ class ApiService {
       throw Exception('궁합 히스토리 삭제에 실패했습니다 (${response.statusCode})');
     }
   }
+
+  // ── Manseryeok API ──
+
+  Future<Map<String, dynamic>> getManseryeok(String date) async {
+    final response = await http
+        .get(
+          Uri.parse('$_baseUrl/api/manseryeok?date=$date'),
+          headers: _headers,
+        )
+        .timeout(_timeout);
+
+    if (response.statusCode != 200) {
+      throw Exception('만세력 조회에 실패했습니다 (${response.statusCode})');
+    }
+
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  // ── Fortune Trend API ──
+
+  Future<Map<String, dynamic>> getFortuneTrend({
+    required String birthDate,
+    required String birthTime,
+    required String gender,
+  }) async {
+    final response = await http
+        .post(
+          Uri.parse('$_baseUrl/api/fortune-trend'),
+          headers: _headers,
+          body: jsonEncode({
+            'birthDate': birthDate,
+            'birthTime': birthTime,
+            'gender': gender,
+          }),
+        )
+        .timeout(_timeout);
+
+    if (response.statusCode != 200) {
+      throw Exception('운세 트렌드 조회에 실패했습니다 (${response.statusCode})');
+    }
+
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  // ── Auspicious Date API ──
+
+  Future<Map<String, dynamic>> getAuspiciousDate({
+    required String birthDate,
+    required String birthTime,
+    required String gender,
+    required String eventType,
+    required String startDate,
+    required String endDate,
+  }) async {
+    final response = await http
+        .post(
+          Uri.parse('$_baseUrl/api/auspicious-date'),
+          headers: _headers,
+          body: jsonEncode({
+            'birthDate': birthDate,
+            'birthTime': birthTime,
+            'gender': gender,
+            'eventType': eventType,
+            'startDate': startDate,
+            'endDate': endDate,
+          }),
+        )
+        .timeout(const Duration(seconds: 90));
+
+    if (response.statusCode != 200) {
+      throw Exception('택일 조회에 실패했습니다 (${response.statusCode})');
+    }
+
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  // ── Team Compatibility API ──
+
+  Future<Map<String, dynamic>> getTeamCompatibility({
+    required List<Map<String, dynamic>> members,
+    required String relationship,
+  }) async {
+    final response = await http
+        .post(
+          Uri.parse('$_baseUrl/api/team-compatibility'),
+          headers: _headers,
+          body: jsonEncode({
+            'members': members,
+            'relationship': relationship,
+          }),
+        )
+        .timeout(const Duration(seconds: 90));
+
+    if (response.statusCode != 200) {
+      throw Exception('팀 궁합 분석에 실패했습니다 (${response.statusCode})');
+    }
+
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  // ── PDF API ──
+
+  Future<String> downloadPdfHtml({
+    required String type,
+    required Map<String, dynamic> data,
+  }) async {
+    final response = await http
+        .post(
+          Uri.parse('$_baseUrl/api/pdf/generate'),
+          headers: _headers,
+          body: jsonEncode({'type': type, 'data': data}),
+        )
+        .timeout(_timeout);
+
+    if (response.statusCode != 200) {
+      throw Exception('PDF 생성에 실패했습니다 (${response.statusCode})');
+    }
+
+    return response.body;
+  }
 }
 
 class InsufficientTicketsException implements Exception {

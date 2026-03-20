@@ -26,22 +26,17 @@ class AppBottomNav extends StatelessWidget {
         NavigationDestination(
           icon: Icon(Icons.auto_awesome_outlined),
           selectedIcon: Icon(Icons.auto_awesome, color: Color(0xFF8A4FFF)),
-          label: '오늘의 운세',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.text_fields_outlined),
-          selectedIcon: Icon(Icons.text_fields, color: Color(0xFF8A4FFF)),
-          label: '성명학',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.person_outline),
-          selectedIcon: Icon(Icons.person, color: Color(0xFF8A4FFF)),
-          label: '내 사주',
+          label: '사주',
         ),
         NavigationDestination(
           icon: Icon(Icons.favorite_outline),
           selectedIcon: Icon(Icons.favorite, color: Color(0xFF8A4FFF)),
           label: '궁합',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.person_outline),
+          selectedIcon: Icon(Icons.person, color: Color(0xFF8A4FFF)),
+          label: '마이페이지',
         ),
       ],
     );

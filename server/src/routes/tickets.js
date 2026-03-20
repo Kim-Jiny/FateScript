@@ -69,6 +69,8 @@ const TICKET_COST = {
   name_analyze: 1,
   name_recommend: 2,
   compatibility: 2,
+  auspicious_date: 2,
+  team_compatibility: 3,
 };
 
 router.post('/consume', requireAuth, async (req, res) => {

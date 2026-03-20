@@ -12,8 +12,10 @@ import '../providers/compatibility_prefill_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/loading_overlay.dart';
 import '../widgets/share_button.dart';
+import '../widgets/pdf_button.dart';
 import 'input_screen.dart';
 import 'login_screen.dart';
+import 'team_compatibility_screen.dart';
 
 const _siJin = [
   ('자시 (23:00~01:00)', '00:00'),
@@ -46,6 +48,7 @@ class CompatibilityScreen extends StatefulWidget {
 }
 
 class _CompatibilityScreenState extends State<CompatibilityScreen> {
+  int _segmentIndex = 0; // 0 = 1:1, 1 = 팀
   bool _showNewAnalysis = false;
   DateTime _selectedDate = DateTime(1990, 1, 1);
   String? _selectedTime;
@@ -117,11 +120,42 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
       body: Stack(
         children: [
           SafeArea(
-            child: _showNewAnalysis
-                ? _newAnalysisView(birthProvider, fortuneProvider)
-                : _historyView(fortuneProvider),
+            child: Column(
+              children: [
+                // 세그먼트 컨트롤
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: SegmentedButton<int>(
+                          segments: const [
+                            ButtonSegment(value: 0, label: Text('1:1 궁합')),
+                            ButtonSegment(value: 1, label: Text('팀 궁합')),
+                          ],
+                          selected: {_segmentIndex},
+                          onSelectionChanged: (v) => setState(() => _segmentIndex = v.first),
+                          style: SegmentedButton.styleFrom(
+                            selectedBackgroundColor: const Color(0xFF8A4FFF).withValues(alpha: 0.12),
+                            selectedForegroundColor: const Color(0xFF8A4FFF),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: _segmentIndex == 0
+                      ? (_showNewAnalysis
+                          ? _newAnalysisView(birthProvider, fortuneProvider)
+                          : _historyView(fortuneProvider))
+                      : const TeamCompatibilityView(),
+                ),
+              ],
+            ),
           ),
-          if (fortuneProvider.isLoading)
+          if (fortuneProvider.isLoading && _segmentIndex == 0)
             const LoadingOverlay(
                 message: '운명선생이 궁합을 분석하고 있습니다...'),
         ],
@@ -356,6 +390,11 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
                               color: Color(0xFF8A4FFF)),
                         ),
                         const Spacer(),
+                        PdfButton(
+                          type: 'compatibility',
+                          data: {'consultation': item.consultation},
+                        ),
+                        const SizedBox(width: 8),
                         ShareButton(
                           type: 'compatibility',
                           data: {'consultation': item.consultation},
@@ -514,6 +553,11 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
                               color: Color(0xFF8A4FFF)),
                         ),
                         const Spacer(),
+                        PdfButton(
+                          type: 'compatibility',
+                          data: {'consultation': fortuneProvider.compatibilityResult!.consultation},
+                        ),
+                        const SizedBox(width: 8),
                         ShareButton(
                           type: 'compatibility',
                           data: {'consultation': fortuneProvider.compatibilityResult!.consultation},

@@ -14,6 +14,11 @@ import ticketRoutes from './routes/tickets.js';
 import inquiryRoutes from './routes/inquiry.js';
 import adminRoutes from './routes/admin.js';
 import shareRoutes from './routes/share.js';
+import manseryeokRoutes from './routes/manseryeok.js';
+import fortuneTrendRoutes from './routes/fortune-trend.js';
+import auspiciousDateRoutes from './routes/auspicious-date.js';
+import teamCompatibilityRoutes from './routes/team-compatibility.js';
+import pdfRoutes from './routes/pdf.js';
 import pool from './config/db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -306,6 +311,11 @@ app.use('/api/tickets', ticketRoutes);
 app.use('/api/inquiry', inquiryRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/share', shareRoutes);
+app.use('/api/manseryeok', manseryeokRoutes);
+app.use('/api/fortune-trend', fortuneTrendRoutes);
+app.use('/api/auspicious-date', auspiciousDateRoutes);
+app.use('/api/team-compatibility', teamCompatibilityRoutes);
+app.use('/api/pdf', pdfRoutes);
 
 // .well-known 파일에 Content-Type: application/json 보장
 app.use('/.well-known', express.static(path.join(__dirname, '..', 'public', '.well-known'), {

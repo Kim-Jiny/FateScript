@@ -7,7 +7,9 @@ import '../providers/birth_info_provider.dart';
 import '../providers/ticket_provider.dart';
 import '../services/api_service.dart';
 import 'input_screen.dart';
+import 'inquiry_screen.dart';
 import 'login_screen.dart';
+import 'ticket_history_screen.dart';
 
 class MyPageScreen extends StatefulWidget {
   const MyPageScreen({super.key});
@@ -219,9 +221,27 @@ class _MyPageScreenState extends State<MyPageScreen> {
             ],
           ),
           const SizedBox(height: 6),
-          const Text(
-            '서비스별 티켓이 차등 소모됩니다.',
-            style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+          Row(
+            children: [
+              const Text(
+                '서비스별 티켓이 차등 소모됩니다.',
+                style: TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const TicketHistoryScreen()),
+                ),
+                child: const Text(
+                  '사용 내역',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF8A4FFF),
+                  ),
+                ),
+              ),
+            ],
           ),
           if (ticketProvider.error != null) ...[
             const SizedBox(height: 8),
@@ -581,8 +601,9 @@ class _MyPageScreenState extends State<MyPageScreen> {
             icon: Icons.mail_outline,
             iconColor: const Color(0xFF6B7280),
             title: '문의하기',
-            subtitle: 'kjinyz@naver.com',
-            onTap: () {},
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const InquiryScreen()),
+            ),
           ),
         ],
       ),

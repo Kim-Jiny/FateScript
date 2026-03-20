@@ -158,6 +158,30 @@ export async function initDb() {
       gender TEXT,
       created_at TIMESTAMPTZ DEFAULT now()
     );
+
+    CREATE TABLE IF NOT EXISTS auspicious_date_cache (
+      cache_key  TEXT PRIMARY KEY,
+      result     JSONB NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT now()
+    );
+
+    CREATE TABLE IF NOT EXISTS team_compatibility_cache (
+      cache_key  TEXT PRIMARY KEY,
+      result     JSONB NOT NULL,
+      year       INT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT now()
+    );
+
+    CREATE TABLE IF NOT EXISTS team_compatibility_history (
+      id           SERIAL PRIMARY KEY,
+      uid          TEXT NOT NULL,
+      cache_key    TEXT NOT NULL,
+      members      JSONB NOT NULL,
+      relationship TEXT NOT NULL,
+      result       JSONB NOT NULL,
+      created_at   TIMESTAMPTZ DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_team_compat_history_uid ON team_compatibility_history(uid);
   `);
 
   // 안전하게 referral_code 컬럼 추가

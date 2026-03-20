@@ -11,6 +11,7 @@ import '../widgets/pillar_card.dart';
 import '../widgets/oheng_chart.dart';
 import '../widgets/loading_overlay.dart';
 import '../widgets/share_button.dart';
+import '../widgets/pdf_button.dart';
 import 'input_screen.dart';
 import 'login_screen.dart';
 
@@ -36,13 +37,16 @@ class _FortuneScreenState extends State<FortuneScreen> {
     final result = fortuneProvider.fortuneResult;
 
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('내 사주'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
       body: Stack(
         children: [
-          SafeArea(
-            child: result == null
-                ? _emptyState(context, birthProvider, fortuneProvider)
-                : _resultView(context, result, fortuneProvider, birthProvider),
-          ),
+          result == null
+              ? _emptyState(context, birthProvider, fortuneProvider)
+              : _resultView(context, result, fortuneProvider, birthProvider),
           if (fortuneProvider.isLoading)
             const LoadingOverlay(message: '운명선생이 사주를 분석하고 있습니다...'),
         ],
@@ -172,6 +176,11 @@ class _FortuneScreenState extends State<FortuneScreen> {
                 const Text('내 사주팔자',
                     style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
                 const Spacer(),
+                PdfButton(
+                  type: 'fortune',
+                  data: result.toJson(),
+                ),
+                const SizedBox(width: 12),
                 ShareButton(
                   type: 'fortune',
                   data: result.toJson(),

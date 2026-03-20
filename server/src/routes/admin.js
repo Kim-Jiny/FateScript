@@ -375,4 +375,225 @@ router.delete('/products/:id', adminAuth, async (req, res) => {
   }
 });
 
+// ── Detailed Stats Endpoints ──
+
+function getPeriodFilter(period) {
+  switch (period) {
+    case '30d': return "NOW() - INTERVAL '30 days'";
+    case '90d': return "NOW() - INTERVAL '90 days'";
+    case 'all': return null;
+    default: return "NOW() - INTERVAL '7 days'";
+  }
+}
+
+// GET /api/admin/stats/users — 유저 성장 분석
+router.get('/stats/users', adminAuth, async (req, res) => {
+  try {
+    const since = getPeriodFilter(req.query.period);
+    const w = since ? `WHERE created_at >= ${since}` : '';
+
+    const [daily, total, periodQ, gender, decade, activated] = await Promise.all([
+      pool.query(`SELECT DATE(created_at) AS date, COUNT(*)::int AS count FROM users ${w} GROUP BY DATE(created_at) ORDER BY date`),
+      pool.query('SELECT COUNT(*)::int AS count FROM users'),
+      pool.query(`SELECT COUNT(*)::int AS count FROM users ${w}`),
+      pool.query(`SELECT COALESCE(gender, 'unknown') AS label, COUNT(*)::int AS count FROM users ${w} GROUP BY label ORDER BY count DESC`),
+      pool.query(`
+        SELECT CASE WHEN birth_date IS NULL OR birth_date = '' THEN '미입력'
+          ELSE CONCAT(SUBSTRING(birth_date FROM 1 FOR 3), '0년대') END AS label,
+          COUNT(*)::int AS count
+        FROM users ${w} GROUP BY label ORDER BY label
+      `),
+      since
+        ? pool.query(`SELECT COUNT(DISTINCT u.uid)::int AS count FROM users u JOIN ticket_transactions tt ON tt.uid = u.uid AND tt.amount < 0 WHERE u.created_at >= ${since}`)
+        : pool.query('SELECT COUNT(DISTINCT u.uid)::int AS count FROM users u JOIN ticket_transactions tt ON tt.uid = u.uid AND tt.amount < 0'),
+    ]);
+
+    const totalCount = total.rows[0].count;
+    const periodCount = periodQ.rows[0].count;
+    const activatedCount = activated.rows[0].count;
+
+    res.json({
+      dailySignups: daily.rows,
+      totalUsers: totalCount,
+      periodUsers: periodCount,
+      genderDistribution: gender.rows,
+      decadeDistribution: decade.rows,
+      activationRate: totalCount > 0 ? +(activatedCount / totalCount * 100).toFixed(1) : 0,
+      activatedUsers: activatedCount,
+    });
+  } catch (error) {
+    console.error('Stats users error:', error);
+    res.status(500).json({ error: 'Failed to get user stats' });
+  }
+});
+
+// GET /api/admin/stats/revenue — 매출 분석
+router.get('/stats/revenue', adminAuth, async (req, res) => {
+  try {
+    const since = getPeriodFilter(req.query.period);
+    const a = since ? `AND tt.created_at >= ${since}` : '';
+
+    const [dailyRev, totalRev, periodRev, ranking, paying, totalUsers] = await Promise.all([
+      pool.query(`
+        SELECT DATE(tt.created_at) AS date, COUNT(*)::int AS count, COALESCE(SUM(p.price_krw), 0)::int AS revenue
+        FROM ticket_transactions tt LEFT JOIN iap_products p ON p.product_id = tt.ref_id
+        WHERE tt.type = 'purchase' ${a}
+        GROUP BY DATE(tt.created_at) ORDER BY date
+      `),
+      pool.query(`
+        SELECT COUNT(*)::int AS count, COALESCE(SUM(p.price_krw), 0)::bigint AS revenue
+        FROM ticket_transactions tt LEFT JOIN iap_products p ON p.product_id = tt.ref_id
+        WHERE tt.type = 'purchase'
+      `),
+      since ? pool.query(`
+        SELECT COUNT(*)::int AS count, COALESCE(SUM(p.price_krw), 0)::bigint AS revenue
+        FROM ticket_transactions tt LEFT JOIN iap_products p ON p.product_id = tt.ref_id
+        WHERE tt.type = 'purchase' AND tt.created_at >= ${since}
+      `) : null,
+      pool.query(`
+        SELECT tt.ref_id AS product_id, COALESCE(p.name, tt.ref_id) AS name,
+               COUNT(*)::int AS sales, COALESCE(SUM(p.price_krw), 0)::bigint AS revenue, SUM(tt.amount)::int AS tickets
+        FROM ticket_transactions tt LEFT JOIN iap_products p ON p.product_id = tt.ref_id
+        WHERE tt.type = 'purchase' ${a}
+        GROUP BY tt.ref_id, p.name ORDER BY sales DESC
+      `),
+      pool.query(`SELECT COUNT(DISTINCT uid)::int AS count FROM ticket_transactions WHERE type = 'purchase' ${since ? `AND created_at >= ${since}` : ''}`),
+      pool.query('SELECT COUNT(*)::int AS count FROM users'),
+    ]);
+
+    const tRev = totalRev.rows[0];
+    const pRev = periodRev ? periodRev.rows[0] : tRev;
+    const payCount = paying.rows[0].count;
+    const userCount = totalUsers.rows[0].count;
+
+    res.json({
+      dailyRevenue: dailyRev.rows,
+      totalRevenue: parseInt(tRev.revenue),
+      totalPurchases: tRev.count,
+      periodRevenue: parseInt(pRev.revenue),
+      periodPurchases: pRev.count,
+      productRanking: ranking.rows,
+      payingUsers: payCount,
+      conversionRate: userCount > 0 ? +(payCount / userCount * 100).toFixed(1) : 0,
+      arpu: payCount > 0 ? Math.round(parseInt(pRev.revenue) / payCount) : 0,
+    });
+  } catch (error) {
+    console.error('Stats revenue error:', error);
+    res.status(500).json({ error: 'Failed to get revenue stats' });
+  }
+});
+
+// GET /api/admin/stats/services — 서비스 이용 분석
+router.get('/stats/services', adminAuth, async (req, res) => {
+  try {
+    const since = getPeriodFilter(req.query.period);
+    const a = since ? `AND created_at >= ${since}` : '';
+
+    const [ranking, dailyTrend, hourly, weekday] = await Promise.all([
+      pool.query(`SELECT ref_id, COUNT(*)::int AS count, COALESCE(SUM(ABS(amount)), 0)::int AS tickets FROM ticket_transactions WHERE amount < 0 ${a} GROUP BY ref_id ORDER BY count DESC`),
+      pool.query(`SELECT DATE(created_at) AS date, ref_id, COUNT(*)::int AS count FROM ticket_transactions WHERE amount < 0 ${a} GROUP BY DATE(created_at), ref_id ORDER BY date`),
+      pool.query(`SELECT EXTRACT(HOUR FROM created_at)::int AS hour, COUNT(*)::int AS count FROM ticket_transactions WHERE amount < 0 ${a} GROUP BY hour ORDER BY hour`),
+      pool.query(`SELECT EXTRACT(DOW FROM created_at)::int AS dow, COUNT(*)::int AS count FROM ticket_transactions WHERE amount < 0 ${a} GROUP BY dow ORDER BY dow`),
+    ]);
+
+    res.json({
+      ranking: ranking.rows,
+      dailyTrend: dailyTrend.rows,
+      hourlyDistribution: hourly.rows,
+      weekdayDistribution: weekday.rows,
+    });
+  } catch (error) {
+    console.error('Stats services error:', error);
+    res.status(500).json({ error: 'Failed to get service stats' });
+  }
+});
+
+// GET /api/admin/stats/tickets — 티켓 경제 분석
+router.get('/stats/tickets', adminAuth, async (req, res) => {
+  try {
+    const since = getPeriodFilter(req.query.period);
+    const a = since ? `AND created_at >= ${since}` : '';
+
+    const [dailyFlow, inflowByType, avgBal, zeroBal, dist] = await Promise.all([
+      pool.query(`
+        SELECT DATE(created_at) AS date,
+               COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0)::int AS inflow,
+               COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0)::int AS outflow
+        FROM ticket_transactions WHERE 1=1 ${a}
+        GROUP BY DATE(created_at) ORDER BY date
+      `),
+      pool.query(`SELECT type, COALESCE(SUM(amount), 0)::int AS total, COUNT(*)::int AS count FROM ticket_transactions WHERE amount > 0 ${a} GROUP BY type ORDER BY total DESC`),
+      pool.query('SELECT COALESCE(AVG(balance), 0)::numeric(10,1) AS avg FROM tickets'),
+      pool.query('SELECT COUNT(*)::int AS count FROM tickets WHERE balance = 0'),
+      pool.query(`
+        SELECT CASE WHEN balance = 0 THEN '0' WHEN balance BETWEEN 1 AND 5 THEN '1-5'
+          WHEN balance BETWEEN 6 AND 10 THEN '6-10' WHEN balance BETWEEN 11 AND 20 THEN '11-20'
+          ELSE '21+' END AS range,
+          COUNT(*)::int AS count
+        FROM tickets GROUP BY range ORDER BY MIN(balance)
+      `),
+    ]);
+
+    res.json({
+      dailyFlow: dailyFlow.rows,
+      inflowByType: inflowByType.rows,
+      avgBalance: parseFloat(avgBal.rows[0].avg),
+      zeroBalanceUsers: zeroBal.rows[0].count,
+      balanceDistribution: dist.rows,
+    });
+  } catch (error) {
+    console.error('Stats tickets error:', error);
+    res.status(500).json({ error: 'Failed to get ticket stats' });
+  }
+});
+
+// GET /api/admin/stats/engagement — 인게이지먼트 분석
+router.get('/stats/engagement', adminAuth, async (req, res) => {
+  try {
+    const since = getPeriodFilter(req.query.period);
+    const w = since ? `WHERE created_at >= ${since}` : '';
+
+    const [dau, wau, mau, shares, topRef, compatTypes, nameRatio, cacheStats] = await Promise.all([
+      pool.query(`SELECT DATE(created_at) AS date, COUNT(DISTINCT uid)::int AS count FROM ticket_transactions ${w} GROUP BY DATE(created_at) ORDER BY date`),
+      pool.query("SELECT COUNT(DISTINCT uid)::int AS count FROM ticket_transactions WHERE created_at >= NOW() - INTERVAL '7 days'"),
+      pool.query("SELECT COUNT(DISTINCT uid)::int AS count FROM ticket_transactions WHERE created_at >= NOW() - INTERVAL '30 days'"),
+      pool.query(`SELECT DATE(created_at) AS date, COUNT(*)::int AS count FROM shared_results ${w} GROUP BY DATE(created_at) ORDER BY date`),
+      pool.query(`SELECT r.referrer_uid, COUNT(*)::int AS count, u.email FROM referrals r LEFT JOIN users u ON u.uid = r.referrer_uid GROUP BY r.referrer_uid, u.email ORDER BY count DESC LIMIT 10`),
+      pool.query(`SELECT relationship, COUNT(*)::int AS count FROM compatibility_history ${w} GROUP BY relationship ORDER BY count DESC`),
+      pool.query(`SELECT mode, COUNT(*)::int AS count FROM name_history ${w} GROUP BY mode ORDER BY count DESC`),
+      Promise.all([
+        pool.query('SELECT COUNT(*)::int AS count FROM fortune_cache'),
+        pool.query('SELECT COUNT(*)::int AS count FROM daily_cache'),
+        pool.query('SELECT COUNT(*)::int AS count FROM compatibility_cache'),
+        pool.query('SELECT COUNT(*)::int AS count FROM name_analysis_cache'),
+      ]),
+    ]);
+
+    const dauValues = dau.rows.map(r => r.count);
+    const avgDau = dauValues.length > 0 ? +(dauValues.reduce((s, v) => s + v, 0) / dauValues.length).toFixed(1) : 0;
+    const mauCount = mau.rows[0].count;
+
+    res.json({
+      dauTrend: dau.rows,
+      avgDau,
+      wau: wau.rows[0].count,
+      mau: mauCount,
+      stickiness: mauCount > 0 ? +(avgDau / mauCount * 100).toFixed(1) : 0,
+      shareTrend: shares.rows,
+      topReferrers: topRef.rows,
+      compatibilityTypes: compatTypes.rows,
+      nameAnalysisRatio: nameRatio.rows,
+      cacheStats: {
+        fortune: cacheStats[0].rows[0].count,
+        daily: cacheStats[1].rows[0].count,
+        compatibility: cacheStats[2].rows[0].count,
+        nameAnalysis: cacheStats[3].rows[0].count,
+      },
+    });
+  } catch (error) {
+    console.error('Stats engagement error:', error);
+    res.status(500).json({ error: 'Failed to get engagement stats' });
+  }
+});
+
 export default router;

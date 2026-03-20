@@ -133,6 +133,22 @@ router.post('/saju', requireAuth, async (req, res) => {
 });
 
 /**
+ * GET /api/user/has-referrer — 이미 추천인이 있는지 확인
+ */
+router.get('/has-referrer', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT id FROM referrals WHERE referred_uid = $1',
+      [req.uid],
+    );
+    res.json({ hasReferrer: rows.length > 0 });
+  } catch (err) {
+    console.error('[user/has-referrer] Error:', err);
+    res.status(500).json({ error: '확인 중 오류가 발생했습니다.' });
+  }
+});
+
+/**
  * POST /api/user/apply-referral — 추천인 코드 적용 (로그인 시)
  */
 router.post('/apply-referral', requireAuth, async (req, res) => {

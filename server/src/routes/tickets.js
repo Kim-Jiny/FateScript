@@ -130,7 +130,13 @@ router.post('/verify-purchase', requireAuth, async (req, res) => {
   try {
     const { platform, productId, purchaseToken } = req.body ?? {};
 
+    console.log(`[IAP:verify-purchase] ===== 요청 수신 =====`);
+    console.log(`[IAP:verify-purchase] uid: ${req.uid}`);
+    console.log(`[IAP:verify-purchase] platform: ${platform}, productId: ${productId}`);
+    console.log(`[IAP:verify-purchase] purchaseToken 존재: ${!!purchaseToken}, 길이: ${purchaseToken?.length || 0}`);
+
     if (!platform || !productId || !purchaseToken) {
+      console.warn(`[IAP:verify-purchase] 필수 파라미터 누락 — platform: ${!!platform}, productId: ${!!productId}, purchaseToken: ${!!purchaseToken}`);
       return res.status(400).json({ error: 'platform, productId, purchaseToken은 필수입니다.' });
     }
 
@@ -140,7 +146,7 @@ router.post('/verify-purchase', requireAuth, async (req, res) => {
       [purchaseToken],
     );
     if (existing.length > 0) {
-      // 이미 처리됨 — 멱등성 보장을 위해 현재 잔액 반환
+      console.log(`[IAP:verify-purchase] 중복 요청 — 이미 처리된 purchaseToken`);
       const { rows } = await client.query(
         'SELECT balance FROM tickets WHERE uid = $1',
         [req.uid],
@@ -149,10 +155,13 @@ router.post('/verify-purchase', requireAuth, async (req, res) => {
     }
 
     // 스토어 영수증 검증 (Apple/Google)
+    console.log(`[IAP:verify-purchase] 스토어 영수증 검증 시작...`);
     try {
-      await verifyPurchaseReceipt(platform, productId, purchaseToken);
+      const verifyResult = await verifyPurchaseReceipt(platform, productId, purchaseToken);
+      console.log(`[IAP:verify-purchase] 영수증 검증 성공:`, JSON.stringify(verifyResult));
     } catch (verifyErr) {
-      console.error(`[IAP] Receipt verification failed (${platform}):`, verifyErr.message);
+      console.error(`[IAP:verify-purchase] 영수증 검증 실패 (${platform}):`, verifyErr.message);
+      console.error(`[IAP:verify-purchase] 에러 스택:`, verifyErr.stack);
       return res.status(403).json({ error: '영수증 검증에 실패했습니다.', detail: verifyErr.message });
     }
 
@@ -161,10 +170,13 @@ router.post('/verify-purchase', requireAuth, async (req, res) => {
       'SELECT ticket_count FROM iap_products WHERE product_id = $1',
       [productId],
     );
+    console.log(`[IAP:verify-purchase] DB 상품 조회 — productId: ${productId}, 결과: ${productRows.length}건`);
     if (productRows.length === 0) {
+      console.error(`[IAP:verify-purchase] DB에 상품 없음! productId: ${productId}`);
       return res.status(400).json({ error: '알 수 없는 상품 ID입니다.' });
     }
     const ticketCount = productRows[0].ticket_count;
+    console.log(`[IAP:verify-purchase] 지급 티켓 수: ${ticketCount}`);
 
     await client.query('BEGIN');
 
@@ -189,10 +201,12 @@ router.post('/verify-purchase', requireAuth, async (req, res) => {
     );
 
     await client.query('COMMIT');
+    console.log(`[IAP:verify-purchase] 성공! uid: ${req.uid}, +${ticketCount}장, 잔액: ${rows[0].balance}`);
     res.json({ balance: rows[0].balance });
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('Verify purchase error:', err);
+    console.error('[IAP:verify-purchase] 예외 발생:', err.message);
+    console.error('[IAP:verify-purchase] 스택:', err.stack);
     res.status(500).json({ error: '구매 검증 중 오류가 발생했습니다.' });
   } finally {
     client.release();

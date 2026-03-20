@@ -21,19 +21,24 @@ class TicketProvider extends ChangeNotifier {
   bool get productsLoaded => _productsLoaded;
 
   Future<void> initialize() async {
+    debugPrint('[TicketProvider] 초기화 시작');
     _iap.onBalanceUpdated = (balance) {
+      debugPrint('[TicketProvider] 잔액 업데이트: $balance');
       _balance = balance;
       _isPurchasing = false;
       notifyListeners();
     };
     _iap.onPurchaseError = (error) {
+      debugPrint('[TicketProvider] 구매 에러: $error');
       _error = error;
       _isPurchasing = false;
       notifyListeners();
     };
     await loadProducts();
     final ids = _products.map((p) => p.productId).toSet();
+    debugPrint('[TicketProvider] 서버 상품 ${_products.length}개 → IAP 초기화 (IDs: $ids)');
     await _iap.initialize(productIds: ids);
+    debugPrint('[TicketProvider] IAP 초기화 완료. 스토어 상품: ${_iap.products.length}개');
     notifyListeners();
   }
 

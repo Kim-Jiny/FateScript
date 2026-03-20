@@ -152,6 +152,15 @@ class _LoginScreenState extends State<LoginScreen> {
     // 이미 추천 코드를 입력한 적이 있으면 건너뛰기
     if (await _storage.hasPromptedReferral()) return;
 
+    // 서버에서 이미 추천인이 적용된 유저인지 확인
+    try {
+      final hasReferrer = await ApiService().checkHasReferrer();
+      if (hasReferrer) {
+        await _storage.setReferralPrompted();
+        return;
+      }
+    } catch (_) {}
+
     // 딥링크로 저장된 코드가 있으면 자동 적용
     final pendingCode = await _storage.loadPendingReferralCode();
     if (pendingCode != null && pendingCode.isNotEmpty) {

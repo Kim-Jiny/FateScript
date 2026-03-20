@@ -206,6 +206,20 @@ class ApiService {
     return json['referralCode'] as String;
   }
 
+  Future<bool> checkHasReferrer() async {
+    final response = await http
+        .get(
+          Uri.parse('$_baseUrl/api/user/has-referrer'),
+          headers: _headers,
+        )
+        .timeout(_timeout);
+
+    if (response.statusCode != 200) return false;
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    return json['hasReferrer'] as bool? ?? false;
+  }
+
   Future<Map<String, dynamic>> applyReferralCode(String code) async {
     final response = await http
         .post(

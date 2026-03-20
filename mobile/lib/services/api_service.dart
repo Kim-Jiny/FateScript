@@ -49,11 +49,17 @@ class ApiService {
   }
 
   Future<DailyFortune> getDailyFortune(BirthInfo info) async {
+    final now = DateTime.now();
+    final clientDate = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final body = {
+      ...info.toJson(),
+      'clientDate': clientDate,
+    };
     final response = await http
         .post(
           Uri.parse('$_baseUrl/api/daily'),
           headers: _headers,
-          body: jsonEncode(info.toJson()),
+          body: jsonEncode(body),
         )
         .timeout(_timeout);
 

@@ -6,7 +6,7 @@ const router = Router();
 
 router.post('/', optionalAuth, async (req, res) => {
   try {
-    const { birthDate, birthTime, gender } = req.body ?? {};
+    const { birthDate, birthTime, gender, clientDate } = req.body ?? {};
 
     if (!birthDate || !gender) {
       return res.status(400).json({ error: 'birthDate와 gender는 필수입니다.' });
@@ -22,12 +22,12 @@ router.post('/', optionalAuth, async (req, res) => {
       minute = parts[1] ?? 0;
     }
 
-    const result = await getDailyFortune({ year, month, day, hour, minute, gender });
+    const result = await getDailyFortune({ year, month, day, hour, minute, gender, clientDate });
 
     // 로그인한 유저면 결과 저장
     if (req.uid) {
       try {
-        const todayDate = new Date().toISOString().slice(0, 10);
+        const todayDate = clientDate || new Date().toISOString().slice(0, 10);
         await saveUserResult({
           uid: req.uid,
           type: 'daily',

@@ -40,13 +40,19 @@ export function getSajuInfo(year, month, day, hour = null, minute = null) {
 }
 
 /**
- * 오늘 날짜의 일진(日辰)을 가져온다.
+ * 특정 날짜(또는 오늘)의 일진(日辰)을 가져온다.
+ * @param {string} [targetDate] - 'YYYY-MM-DD' 형식. 없으면 서버 기준 오늘.
  */
-export function getTodayIljin() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1;
-  const day = now.getDate();
+export function getTodayIljin(targetDate) {
+  let year, month, day;
+  if (targetDate) {
+    [year, month, day] = targetDate.split('-').map(Number);
+  } else {
+    const now = new Date();
+    year = now.getFullYear();
+    month = now.getMonth() + 1;
+    day = now.getDate();
+  }
 
   const gapja = getGapja(year, month, day);
   return {

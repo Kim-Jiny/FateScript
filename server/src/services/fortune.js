@@ -164,8 +164,9 @@ export async function interpretFortune({ year, month, day, hour, minute, gender 
 /**
  * 오늘의 운세 (DB 캐시: 같은 날 동안 유지)
  */
-export async function getDailyFortune({ year, month, day, hour, minute, gender }) {
-  const todayDate = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+export async function getDailyFortune({ year, month, day, hour, minute, gender, clientDate }) {
+  // 디바이스 날짜 우선, 없으면 서버 날짜
+  const todayDate = clientDate || new Date().toISOString().slice(0, 10);
   const cacheKey = `daily:${year}-${month}-${day}-${hour}-${minute}-${gender}:${todayDate}`;
 
   // DB 캐시 조회
@@ -179,7 +180,7 @@ export async function getDailyFortune({ year, month, day, hour, minute, gender }
   }
 
   const sajuInfo = getSajuInfo(year, month, day, hour, minute);
-  const iljin = getTodayIljin();
+  const iljin = getTodayIljin(todayDate);
   const prompt = buildDailyPrompt(sajuInfo, iljin, gender);
   const reading = await askGemini(prompt, getSystemPrompt('date'));
 

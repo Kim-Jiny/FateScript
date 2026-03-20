@@ -24,6 +24,14 @@ router.get('/', (req, res) => {
     const lunar = solarToLunar(year, month, day);
     const oheng = analyzeOhengFromGapja(gapja);
 
+    // OhengInfo.fromJson 형태에 맞게 변환
+    const ohengForClient = {
+      distribution: oheng.distribution,
+      dominant: { name: oheng.dominantInfo.name, emoji: oheng.dominantInfo.emoji },
+      weak: { name: oheng.weakInfo.name, emoji: oheng.weakInfo.emoji },
+      summary: oheng.summary,
+    };
+
     res.json({
       date,
       saju: {
@@ -37,7 +45,7 @@ router.get('/', (req, res) => {
         day: lunar.lunar.day,
         isLeapMonth: lunar.lunar.isLeapMonth,
       },
-      oheng,
+      oheng: ohengForClient,
     });
   } catch (err) {
     console.error('Manseryeok error:', err);

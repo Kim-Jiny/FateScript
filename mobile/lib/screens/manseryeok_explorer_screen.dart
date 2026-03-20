@@ -31,7 +31,8 @@ class _ManseryeokExplorerScreenState extends State<ManseryeokExplorerScreen> {
       final dateStr = DateFormat('yyyy-MM-dd').format(date);
       final result = await ApiService().getManseryeok(dateStr);
       if (mounted) setState(() => _result = result);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[ManseryeokExplorer] error: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

@@ -146,14 +146,15 @@ class _MyPageScreenState extends State<MyPageScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  authProvider.displayName ?? '사용자',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1F2937),
+                if (authProvider.displayName != null)
+                  Text(
+                    authProvider.displayName!,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1F2937),
+                    ),
                   ),
-                ),
                 if (authProvider.email != null) ...[
                   const SizedBox(height: 4),
                   Text(

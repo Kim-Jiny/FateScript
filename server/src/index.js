@@ -116,6 +116,7 @@ document.querySelectorAll('[data-markdown]').forEach(function(el){
     compatibility:  { icon: '💑', title: '궁합 분석', sub: 'AI 궁합 분석 결과' },
     name_analysis:  { icon: '📝', title: '이름 분석', sub: 'AI 성명학 분석' },
     name_recommend: { icon: '✨', title: '이름 추천', sub: 'AI 성명학 작명' },
+    auspicious_date: { icon: '📅', title: '택일/길일추천', sub: 'AI 길일 분석 결과' },
   };
   const hero = heroMap[type] || heroMap.fortune;
 
@@ -246,12 +247,38 @@ ${sectionHtml}${compatBtn}`;
 <div class="card">${recs}<div class="divider" style="margin:16px 0"></div>${criteriaHtml}${adviceHtml}</div>`;
       break;
     }
+    case 'auspicious_date': {
+      const dates = data.dates || [];
+      const advice = data.advice || '';
+      const eventLabels = { move: '이사', wedding: '결혼', business: '개업', travel: '여행', interview: '면접' };
+      const eventLabel = data.eventLabel || eventLabels[data.eventType] || '행사';
+
+      const datesHtml = dates.map((d, i) => {
+        const rankColors = ['#c084fc', '#a78bfa', '#818cf8', '#93c5fd', '#a5b4fc'];
+        const color = rankColors[i] || rankColors[4];
+        return `<div class="card" style="padding:18px">
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+<span style="background:rgba(138,79,255,.15);color:${color};font-size:12px;font-weight:700;padding:4px 12px;border-radius:8px;border:1px solid rgba(138,79,255,.2)">${i + 1}위</span>
+<span style="font-size:15px;font-weight:700;color:#e9d5ff">${d.date || ''}</span>
+<span style="margin-left:auto;font-size:14px;font-weight:700;color:${color}">${d.score || 0}점</span>
+</div>
+${d.pillar ? `<p style="font-size:12px;color:rgba(196,181,253,.6);margin-bottom:8px">일진: ${d.pillar}</p>` : ''}
+${d.reason ? `<p style="font-size:13px;line-height:1.7;color:rgba(226,216,240,.85)">${d.reason}</p>` : ''}
+</div>`;
+      }).join('');
+
+      const adviceHtml = advice ? `<div class="card"><h2>🍀 운명선생의 조언</h2><div class="markdown-content" data-markdown="${escapeAttr(advice)}"></div></div>` : '';
+
+      body = `<div class="hero"><span class="icon">${hero.icon}</span><h1>${hero.title}</h1><p class="sub">${hero.sub}</p><div class="badge">${eventLabel}</div></div>
+${datesHtml}${adviceHtml}`;
+      break;
+    }
     default:
       body = '<div class="card"><p>지원하지 않는 결과 유형입니다.</p></div>';
   }
 
-  const titleMap = { fortune: '사주팔자', daily: '오늘의 운세', compatibility: '궁합 분석', name_analysis: '이름 분석', name_recommend: '이름 추천' };
-  const descMap = { fortune: 'AI가 분석한 사주팔자 결과입니다.', daily: 'AI가 분석한 오늘의 운세입니다.', compatibility: 'AI가 분석한 궁합 결과입니다.', name_analysis: 'AI 성명학 이름 분석 결과입니다.', name_recommend: 'AI 성명학 이름 추천 결과입니다.' };
+  const titleMap = { fortune: '사주팔자', daily: '오늘의 운세', compatibility: '궁합 분석', name_analysis: '이름 분석', name_recommend: '이름 추천', auspicious_date: '택일/길일추천' };
+  const descMap = { fortune: 'AI가 분석한 사주팔자 결과입니다.', daily: 'AI가 분석한 오늘의 운세입니다.', compatibility: 'AI가 분석한 궁합 결과입니다.', name_analysis: 'AI 성명학 이름 분석 결과입니다.', name_recommend: 'AI 성명학 이름 추천 결과입니다.', auspicious_date: 'AI가 분석한 길일추천 결과입니다.' };
 
   return `<!DOCTYPE html>
 <html lang="ko"><head>

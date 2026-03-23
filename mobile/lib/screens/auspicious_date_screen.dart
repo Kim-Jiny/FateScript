@@ -7,6 +7,7 @@ import '../providers/birth_info_provider.dart';
 import '../providers/ticket_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/loading_overlay.dart';
+import '../widgets/share_button.dart';
 import 'login_screen.dart';
 
 const _eventTypes = [
@@ -194,10 +195,25 @@ class _AuspiciousDateScreenState extends State<AuspiciousDateScreen> {
     final dates = (_result!['dates'] as List?)?.cast<Map<String, dynamic>>() ?? [];
     final advice = _result!['advice'] as String? ?? '';
 
+    final birthProvider = context.read<BirthInfoProvider>();
+    final eventLabel = _eventTypes.firstWhere((e) => e.$2 == _eventType).$1;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('추천 길일', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        Row(
+          children: [
+            const Text('추천 길일', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+            const Spacer(),
+            ShareButton(
+              type: 'auspicious_date',
+              data: {..._result!, 'eventType': _eventType, 'eventLabel': eventLabel},
+              birthDate: birthProvider.birthInfo?.birthDate,
+              birthTime: birthProvider.birthInfo?.birthTime,
+              gender: birthProvider.birthInfo?.gender,
+            ),
+          ],
+        ),
         const SizedBox(height: 12),
         for (int i = 0; i < dates.length; i++) ...[
           Container(

@@ -133,14 +133,19 @@ router.post('/verify-purchase', requireAuth, async (req, res) => {
 
     // 스토어 영수증 검증 (Apple/Google) — 트랜잭션 밖에서 수행
     console.log(`[IAP:verify-purchase] 스토어 영수증 검증 시작...`);
+    let verifyResult;
     try {
-      const verifyResult = await verifyPurchaseReceipt(platform, productId, purchaseToken);
+      verifyResult = await verifyPurchaseReceipt(platform, productId, purchaseToken);
       console.log(`[IAP:verify-purchase] 영수증 검증 성공:`, JSON.stringify(verifyResult));
     } catch (verifyErr) {
       console.error(`[IAP:verify-purchase] 영수증 검증 실패 (${platform}):`, verifyErr.message);
       console.error(`[IAP:verify-purchase] 에러 스택:`, verifyErr.stack);
       return res.status(403).json({ error: '영수증 검증에 실패했습니다.', detail: verifyErr.message });
     }
+
+    // transactionId를 중복 체크 키로 사용 (StoreKit 2는 매번 다른 JWS를 생성하므로)
+    const txnId = verifyResult.transactionId || verifyResult.orderId || purchaseToken;
+    console.log(`[IAP:verify-purchase] 중복 체크 키 (txnId): ${txnId}`);
 
     // 상품 ID → 티켓 수 DB 조회
     const { rows: productRows } = await pool.query(
@@ -157,17 +162,17 @@ router.post('/verify-purchase', requireAuth, async (req, res) => {
 
     await client.query('BEGIN');
 
-    // advisory lock으로 동일 purchaseToken 동시 처리 방지
-    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [purchaseToken]);
+    // advisory lock으로 동일 transactionId 동시 처리 방지
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [txnId]);
 
-    // 중복 방지: 같은 purchaseToken으로 이미 적립했는지 확인 (lock 내부에서)
+    // 중복 방지: 같은 transactionId로 이미 적립했는지 확인 (lock 내부에서)
     const { rows: existing } = await client.query(
       `SELECT id FROM ticket_transactions WHERE ref_id = $1 AND type = 'purchase'`,
-      [purchaseToken],
+      [txnId],
     );
     if (existing.length > 0) {
       await client.query('ROLLBACK');
-      console.log(`[IAP:verify-purchase] 중복 요청 — 이미 처리된 purchaseToken`);
+      console.log(`[IAP:verify-purchase] 중복 요청 — 이미 처리된 txnId: ${txnId}`);
       const { rows } = await client.query(
         'SELECT balance FROM tickets WHERE uid = $1',
         [req.uid],
@@ -192,7 +197,7 @@ router.post('/verify-purchase', requireAuth, async (req, res) => {
     await client.query(
       `INSERT INTO ticket_transactions (uid, type, amount, balance_after, ref_id, platform, product_id)
        VALUES ($1, 'purchase', $2, $3, $4, $5, $6)`,
-      [req.uid, ticketCount, rows[0].balance, purchaseToken, platform, productId],
+      [req.uid, ticketCount, rows[0].balance, txnId, platform, productId],
     );
 
     await client.query('COMMIT');

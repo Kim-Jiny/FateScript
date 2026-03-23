@@ -163,7 +163,8 @@ class IapService {
         await _iap.completePurchase(purchase);
       }
 
-      if (purchaseId.isNotEmpty) _processingPurchases.remove(purchaseId);
+      // purchaseId는 세션 동안 유지하여 중복 스트림 이벤트 차단
+      // (_processingPurchases에서 제거하지 않음)
 
       if (!verified) {
         // 실패한 구매 정보를 로컬에 저장하여 나중에 수동 복구 가능

@@ -479,7 +479,7 @@ router.get('/purchases', adminAuth, async (req, res) => {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
     const offset = (page - 1) * limit;
-    const { dateFrom, dateTo, productId, refundStatus, email } = req.query;
+    const { dateFrom, dateTo, productId, refundStatus, email, environment } = req.query;
 
     const conditions = ["tt.type = 'purchase'"];
     const params = [];
@@ -489,6 +489,7 @@ router.get('/purchases', adminAuth, async (req, res) => {
     if (dateTo) { pi++; conditions.push(`tt.created_at < $${pi}::date + 1`); params.push(dateTo); }
     if (productId) { pi++; conditions.push(`COALESCE(tt.product_id, tt.ref_id) = $${pi}`); params.push(productId); }
     if (email) { pi++; conditions.push(`u.email ILIKE $${pi}`); params.push(`%${email}%`); }
+    if (environment) { pi++; conditions.push(`COALESCE(tt.environment, 'Production') = $${pi}`); params.push(environment); }
 
     if (refundStatus === 'refunded') {
       conditions.push(`EXISTS (SELECT 1 FROM ticket_transactions r WHERE r.ref_id = CONCAT('refund:', tt.id::text) AND r.type = 'refund')`);
@@ -506,7 +507,7 @@ router.get('/purchases', adminAuth, async (req, res) => {
     `;
     const dataQuery = `
       SELECT tt.id, tt.uid, tt.amount, tt.balance_after, tt.ref_id, tt.created_at,
-             tt.platform, tt.product_id,
+             tt.platform, tt.product_id, COALESCE(tt.environment, 'Production') AS environment,
              u.email,
              COALESCE(p.name, COALESCE(tt.product_id, tt.ref_id)) AS product_name,
              COALESCE(p.price_krw, 0) AS price_krw,
@@ -541,18 +542,21 @@ router.get('/purchases', adminAuth, async (req, res) => {
 // GET /api/admin/purchases/summary — 구매 요약 통계
 router.get('/purchases/summary', adminAuth, async (req, res) => {
   try {
+    const { environment } = req.query;
+    const envCond = environment ? `AND COALESCE(tt.environment, 'Production') = '${environment.replace(/'/g, '')}'` : '';
+
     const [todayRev, totalRev, totalRefund, platformRev] = await Promise.all([
       pool.query(`
         SELECT COUNT(*)::int AS count, COALESCE(SUM(p.price_krw), 0)::bigint AS revenue
         FROM ticket_transactions tt
         LEFT JOIN iap_products p ON p.product_id = COALESCE(tt.product_id, tt.ref_id)
-        WHERE tt.type = 'purchase' AND tt.created_at >= CURRENT_DATE
+        WHERE tt.type = 'purchase' AND tt.created_at >= CURRENT_DATE ${envCond}
       `),
       pool.query(`
         SELECT COUNT(*)::int AS count, COALESCE(SUM(p.price_krw), 0)::bigint AS revenue
         FROM ticket_transactions tt
         LEFT JOIN iap_products p ON p.product_id = COALESCE(tt.product_id, tt.ref_id)
-        WHERE tt.type = 'purchase'
+        WHERE tt.type = 'purchase' ${envCond}
       `),
       pool.query(`
         SELECT COUNT(*)::int AS count, COALESCE(SUM(ABS(tt.amount)), 0)::int AS tickets
@@ -565,7 +569,7 @@ router.get('/purchases/summary', adminAuth, async (req, res) => {
                COALESCE(SUM(p.price_krw), 0)::bigint AS revenue
         FROM ticket_transactions tt
         LEFT JOIN iap_products p ON p.product_id = COALESCE(tt.product_id, tt.ref_id)
-        WHERE tt.type = 'purchase'
+        WHERE tt.type = 'purchase' ${envCond}
         GROUP BY COALESCE(tt.platform, 'unknown')
       `),
     ]);

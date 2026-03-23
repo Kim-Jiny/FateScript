@@ -213,6 +213,12 @@ export async function initDb() {
       ) THEN
         ALTER TABLE ticket_transactions ADD COLUMN product_id TEXT;
       END IF;
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'ticket_transactions' AND column_name = 'environment'
+      ) THEN
+        ALTER TABLE ticket_transactions ADD COLUMN environment TEXT;
+      END IF;
     END $$;
   `);
 

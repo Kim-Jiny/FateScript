@@ -145,7 +145,8 @@ router.post('/verify-purchase', requireAuth, async (req, res) => {
 
     // transactionId를 중복 체크 키로 사용 (StoreKit 2는 매번 다른 JWS를 생성하므로)
     const txnId = verifyResult.transactionId || verifyResult.orderId || purchaseToken;
-    console.log(`[IAP:verify-purchase] 중복 체크 키 (txnId): ${txnId}`);
+    const environment = verifyResult.environment || 'Production';
+    console.log(`[IAP:verify-purchase] 중복 체크 키 (txnId): ${txnId}, environment: ${environment}`);
 
     // 상품 ID → 티켓 수 DB 조회
     const { rows: productRows } = await pool.query(
@@ -195,9 +196,9 @@ router.post('/verify-purchase', requireAuth, async (req, res) => {
     );
 
     await client.query(
-      `INSERT INTO ticket_transactions (uid, type, amount, balance_after, ref_id, platform, product_id)
-       VALUES ($1, 'purchase', $2, $3, $4, $5, $6)`,
-      [req.uid, ticketCount, rows[0].balance, txnId, platform, productId],
+      `INSERT INTO ticket_transactions (uid, type, amount, balance_after, ref_id, platform, product_id, environment)
+       VALUES ($1, 'purchase', $2, $3, $4, $5, $6, $7)`,
+      [req.uid, ticketCount, rows[0].balance, txnId, platform, productId, environment],
     );
 
     await client.query('COMMIT');

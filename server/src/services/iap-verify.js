@@ -64,10 +64,11 @@ async function verifyAppleJWS(jwsTransaction) {
     throw new Error(`Bundle ID 불일치: ${payload.bundleId}`);
   }
 
-  console.log(`[IAP:Apple:SK2] 검증 성공 — productId: ${payload.productId}, transactionId: ${payload.transactionId}`);
+  console.log(`[IAP:Apple:SK2] 검증 성공 — productId: ${payload.productId}, transactionId: ${payload.transactionId}, environment: ${payload.environment}`);
   return {
     productId: payload.productId,
     transactionId: String(payload.transactionId),
+    environment: payload.environment || 'Production',
     valid: true,
   };
 }
@@ -78,11 +79,13 @@ async function verifyAppleReceipt(receiptData) {
   console.log(`[IAP:Apple] 레거시 영수증 검증 시작 (receipt 길이: ${receiptData?.length || 0})`);
 
   // Production 먼저 시도, 21007이면 Sandbox로 재시도
+  let isSandbox = false;
   let result = await callAppleVerify(APPLE_VERIFY_PRODUCTION, receiptData);
   console.log(`[IAP:Apple] Production 응답 status: ${result.status}`);
 
   if (result.status === 21007) {
     // Sandbox 영수증 → Sandbox 서버로 재시도
+    isSandbox = true;
     console.log('[IAP:Apple] Sandbox 영수증 감지 → Sandbox 서버로 재시도');
     result = await callAppleVerify(APPLE_VERIFY_SANDBOX, receiptData);
     console.log(`[IAP:Apple] Sandbox 응답 status: ${result.status}`);
@@ -110,10 +113,11 @@ async function verifyAppleReceipt(receiptData) {
 
   // 가장 최근 구매 항목
   const latest = inApp[inApp.length - 1];
-  console.log(`[IAP:Apple] 검증 성공 — productId: ${latest.product_id}, transactionId: ${latest.transaction_id}`);
+  console.log(`[IAP:Apple] 검증 성공 — productId: ${latest.product_id}, transactionId: ${latest.transaction_id}, sandbox: ${isSandbox}`);
   return {
     productId: latest.product_id,
     transactionId: latest.transaction_id,
+    environment: isSandbox ? 'Sandbox' : 'Production',
     valid: true,
   };
 }

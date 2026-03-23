@@ -44,6 +44,13 @@ class TicketProvider extends ChangeNotifier {
     debugPrint('[TicketProvider] 서버 상품 ${_products.length}개 → IAP 초기화 (IDs: $ids)');
     await _iap.initialize(productIds: ids);
     debugPrint('[TicketProvider] IAP 초기화 완료. 스토어 상품: ${_iap.products.length}개');
+
+    // 이전에 실패한 구매가 있으면 재시도
+    final recovered = await _iap.retryFailedPurchases();
+    if (recovered > 0) {
+      debugPrint('[TicketProvider] 미완료 구매 $recovered건 복구됨');
+    }
+
     notifyListeners();
   }
 

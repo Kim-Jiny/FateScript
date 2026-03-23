@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import 'api_service.dart';
 
 class IapService {
@@ -121,27 +123,42 @@ class IapService {
 
     if (purchase.status == PurchaseStatus.purchased ||
         purchase.status == PurchaseStatus.restored) {
-      // 서버에서 검증
+      // 서버에서 검증 (최대 3회 재시도)
       final platform = Platform.isIOS ? 'ios' : 'android';
       debugPrint('[IAP] 서버 검증 요청 — platform: $platform, productId: ${purchase.productID}');
-      try {
-        final balance = await _api.verifyPurchase(
-          platform: platform,
-          productId: purchase.productID,
-          purchaseToken: purchase.verificationData.serverVerificationData,
-        );
 
-        debugPrint('[IAP] 서버 검증 성공! 잔액: $balance');
-        onBalanceUpdated?.call(balance);
+      bool verified = false;
+      for (int attempt = 1; attempt <= 3; attempt++) {
+        try {
+          final balance = await _api.verifyPurchase(
+            platform: platform,
+            productId: purchase.productID,
+            purchaseToken: purchase.verificationData.serverVerificationData,
+          );
 
-        // 검증 성공 후 완료 처리
-        if (purchase.pendingCompletePurchase) {
-          debugPrint('[IAP] completePurchase 호출');
-          await _iap.completePurchase(purchase);
+          debugPrint('[IAP] 서버 검증 성공! 잔액: $balance (시도 $attempt/3)');
+          onBalanceUpdated?.call(balance);
+          verified = true;
+          break;
+        } catch (e) {
+          debugPrint('[IAP] 서버 검증 실패 (시도 $attempt/3): $e');
+          if (attempt < 3) {
+            await Future.delayed(Duration(seconds: 2 * attempt));
+          }
         }
-      } catch (e) {
-        debugPrint('[IAP] 서버 검증 실패: $e');
-        onPurchaseError?.call('구매 검증에 실패했습니다. 앱을 재시작해 주세요.');
+      }
+
+      // 검증 성공/실패 모두 completePurchase 호출하여 pending 상태 해제
+      if (purchase.pendingCompletePurchase) {
+        debugPrint('[IAP] completePurchase 호출 (verified: $verified)');
+        await _iap.completePurchase(purchase);
+      }
+
+      if (!verified) {
+        // 실패한 구매 정보를 로컬에 저장하여 나중에 수동 복구 가능
+        await _saveFailedPurchase(platform, purchase.productID,
+            purchase.verificationData.serverVerificationData);
+        onPurchaseError?.call('구매 검증에 실패했습니다. 앱을 재시작하면 자동으로 재시도됩니다.');
       }
     } else if (purchase.status == PurchaseStatus.error) {
       debugPrint('[IAP] 구매 에러: ${purchase.error}');
@@ -162,6 +179,68 @@ class IapService {
       debugPrint('[IAP] 구매 대기 중 (결제 승인 대기)');
     }
     debugPrint('[IAP] ===== 구매 처리 완료 =====');
+  }
+
+  /// 검증 실패한 구매를 로컬에 저장
+  Future<void> _saveFailedPurchase(String platform, String productId, String purchaseToken) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList('failed_purchases') ?? [];
+      final entry = jsonEncode({
+        'platform': platform,
+        'productId': productId,
+        'purchaseToken': purchaseToken,
+        'failedAt': DateTime.now().toIso8601String(),
+      });
+      // 중복 방지
+      if (!list.any((e) {
+        final m = jsonDecode(e) as Map<String, dynamic>;
+        return m['purchaseToken'] == purchaseToken;
+      })) {
+        list.add(entry);
+        await prefs.setStringList('failed_purchases', list);
+        debugPrint('[IAP] 실패한 구매 저장 완료 (총 ${list.length}건)');
+      }
+    } catch (e) {
+      debugPrint('[IAP] 실패 구매 저장 오류: $e');
+    }
+  }
+
+  /// 저장된 실패 구매를 다시 검증 시도
+  Future<int> retryFailedPurchases() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList('failed_purchases') ?? [];
+      if (list.isEmpty) return 0;
+
+      debugPrint('[IAP] 실패 구매 재시도 시작 (${list.length}건)');
+      final remaining = <String>[];
+      int recovered = 0;
+
+      for (final entry in list) {
+        final m = jsonDecode(entry) as Map<String, dynamic>;
+        try {
+          final balance = await _api.verifyPurchase(
+            platform: m['platform'] as String,
+            productId: m['productId'] as String,
+            purchaseToken: m['purchaseToken'] as String,
+          );
+          debugPrint('[IAP] 실패 구매 복구 성공! productId: ${m['productId']}, 잔액: $balance');
+          onBalanceUpdated?.call(balance);
+          recovered++;
+        } catch (e) {
+          debugPrint('[IAP] 실패 구매 복구 실패: ${m['productId']} — $e');
+          remaining.add(entry);
+        }
+      }
+
+      await prefs.setStringList('failed_purchases', remaining);
+      debugPrint('[IAP] 실패 구매 재시도 완료 — 복구: $recovered, 잔여: ${remaining.length}');
+      return recovered;
+    } catch (e) {
+      debugPrint('[IAP] retryFailedPurchases 오류: $e');
+      return 0;
+    }
   }
 
   void dispose() {

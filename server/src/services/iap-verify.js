@@ -46,7 +46,11 @@ async function verifyAppleJWS(jwsTransaction) {
     const signatureInput = Buffer.from(`${parts[0]}.${parts[1]}`);
     const signature = Buffer.from(parts[2], 'base64url');
 
-    const isValid = crypto.verify('SHA256', signatureInput, publicKey, signature);
+    // ES256(ECDSA) JWS 서명은 raw R||S (ieee-p1363) 형식
+    const isValid = crypto.verify('SHA256', signatureInput, {
+      key: publicKey,
+      dsaEncoding: 'ieee-p1363',
+    }, signature);
     if (!isValid) {
       throw new Error('JWS 서명 검증 실패');
     }

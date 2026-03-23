@@ -128,30 +128,96 @@ class _FortuneScreenState extends State<FortuneScreen> {
 
   Widget _emptyState(BuildContext context, BirthInfoProvider birthProvider,
       FortuneProvider fortuneProvider) {
-    return Center(
+    // 사주 프리뷰 로드
+    if (fortuneProvider.sajuPreview == null && !fortuneProvider.isPreviewLoading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        fortuneProvider.fetchSajuPreview(birthProvider.birthInfo!);
+      });
+    }
+
+    final preview = fortuneProvider.sajuPreview;
+
+    if (preview == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    // 프리뷰 데이터에서 FortuneResult 형태로 변환하여 기둥/오행 표시
+    final saju = preview['saju'] as Map<String, dynamic>;
+    final ohengData = preview['oheng'] as Map<String, dynamic>;
+    final previewResult = FortuneResult.fromJson({
+      'saju': saju,
+      'oheng': ohengData,
+      'manseryeok': '',
+      'yearFortune': '',
+      'interpretation': '',
+      'categories': [],
+    });
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.auto_awesome, size: 64, color: Color(0xFF8A4FFF)),
-          const SizedBox(height: 16),
-          const Text('내 사주 해석',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
-          const Text('전체 사주팔자를 AI가 분석합니다.',
-              style: TextStyle(color: Color(0xFF6B7280))),
+          const Text('내 사주팔자',
+              style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 16),
+          // 사주 기둥
+          Row(
+            children: [
+              Expanded(child: PillarCard(label: '년주', pillar: previewResult.yearPillar, oheng: previewResult.oheng)),
+              const SizedBox(width: 8),
+              Expanded(child: PillarCard(label: '월주', pillar: previewResult.monthPillar, oheng: previewResult.oheng)),
+              const SizedBox(width: 8),
+              Expanded(child: PillarCard(label: '일주', pillar: previewResult.dayPillar, oheng: previewResult.oheng)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: previewResult.hourPillar != null
+                    ? PillarCard(label: '시주', pillar: previewResult.hourPillar!, oheng: previewResult.oheng)
+                    : Container(
+                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF9FAFB),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFE5E7EB)),
+                        ),
+                        child: const Column(
+                          children: [
+                            Text('시주', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF8A4FFF))),
+                            SizedBox(height: 10),
+                            Text('?', style: TextStyle(fontSize: 24, color: Color(0xFFD1D5DB))),
+                            Text('미상', style: TextStyle(fontSize: 11, color: Color(0xFF9CA3AF))),
+                          ],
+                        ),
+                      ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // 오행 차트
+          OhengChart(oheng: previewResult.oheng),
+          const SizedBox(height: 24),
+          // AI 분석 버튼
           if (fortuneProvider.error != null) ...[
-            const SizedBox(height: 12),
             Text(fortuneProvider.error!,
                 style: const TextStyle(color: Colors.red, fontSize: 11)),
+            const SizedBox(height: 12),
           ],
-          const SizedBox(height: 24),
-          FilledButton(
-            onPressed: () =>
-                _fetchWithTicket(context, birthProvider, fortuneProvider),
-            style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF8A4FFF)),
-            child: const Text('사주 분석 시작 (1티켓)'),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () =>
+                  _fetchWithTicket(context, birthProvider, fortuneProvider),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF8A4FFF),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+              icon: const Icon(Icons.auto_awesome, size: 18),
+              label: const Text('AI 상세 분석 (1티켓)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+            ),
           ),
+          const SizedBox(height: 40),
         ],
       ),
     );

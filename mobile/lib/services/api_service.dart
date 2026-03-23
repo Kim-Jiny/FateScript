@@ -34,6 +34,22 @@ class ApiService {
     return h;
   }
 
+  /// 만세력 기본 정보 (무료, AI 없음)
+  Future<Map<String, dynamic>> getSajuPreview(BirthInfo info) async {
+    final params = {
+      'birthDate': info.birthDate,
+      'birthTime': info.birthTime ?? 'unknown',
+      'gender': info.gender,
+    };
+    final uri = Uri.parse('$_baseUrl/api/fortune/saju').replace(queryParameters: params);
+    final response = await http.get(uri).timeout(const Duration(seconds: 10));
+
+    if (response.statusCode != 200) {
+      throw Exception('사주 정보 조회 실패 (${response.statusCode})');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
   Future<FortuneResult> getFortune(BirthInfo info, {bool consumeTicket = false}) async {
     final body = <String, dynamic>{...info.toJson()};
     if (consumeTicket) body['consumeTicket'] = true;

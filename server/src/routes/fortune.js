@@ -2,9 +2,47 @@ import { Router } from 'express';
 import { interpretFortune, saveUserResult } from '../services/fortune.js';
 import { optionalAuth } from '../middleware/auth.js';
 import { consumeTicketForService, refundTicketForService } from '../utils/ticket-consume.js';
+import { getSajuInfo } from '../services/saju.js';
 import pool from '../config/db.js';
 
 const router = Router();
+
+/**
+ * GET /api/fortune/saju — 만세력 기본 정보 (무료, 인증 불필요)
+ * query: birthDate, birthTime, gender
+ */
+router.get('/saju', (req, res) => {
+  try {
+    const { birthDate, birthTime, gender } = req.query;
+    if (!birthDate || !gender) {
+      return res.status(400).json({ error: 'birthDate와 gender는 필수입니다.' });
+    }
+
+    const [year, month, day] = birthDate.split('-').map(Number);
+    let hour = null, minute = null;
+    if (birthTime && birthTime !== 'unknown') {
+      const parts = birthTime.split(':').map(Number);
+      hour = parts[0];
+      minute = parts[1] ?? 0;
+    }
+
+    const sajuInfo = getSajuInfo(year, month, day, hour, minute);
+
+    res.json({
+      saju: sajuInfo.saju,
+      lunar: sajuInfo.lunar,
+      oheng: {
+        distribution: sajuInfo.oheng.distribution,
+        dominant: sajuInfo.oheng.dominantInfo,
+        weak: sajuInfo.oheng.weakInfo,
+        summary: sajuInfo.oheng.summary,
+      },
+    });
+  } catch (err) {
+    console.error('Saju info error:', err);
+    res.status(500).json({ error: '사주 정보 계산 중 오류가 발생했습니다.' });
+  }
+});
 
 router.post('/', optionalAuth, async (req, res) => {
   try {

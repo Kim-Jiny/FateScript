@@ -14,6 +14,7 @@ class FortuneProvider extends ChangeNotifier {
   final StorageService _storage = StorageService();
 
   FortuneResult? _fortuneResult;
+  Map<String, dynamic>? _sajuPreview;
   DailyFortune? _dailyFortune;
   NameAnalysisResult? _nameAnalysisResult;
   NameRecommendResult? _nameRecommendResult;
@@ -21,9 +22,12 @@ class FortuneProvider extends ChangeNotifier {
   List<CompatibilityHistoryItem> _compatibilityHistory = [];
   List<NameHistoryItem> _nameHistory = [];
   bool _isLoading = false;
+  bool _isPreviewLoading = false;
   String? _error;
 
   FortuneResult? get fortuneResult => _fortuneResult;
+  Map<String, dynamic>? get sajuPreview => _sajuPreview;
+  bool get isPreviewLoading => _isPreviewLoading;
   DailyFortune? get dailyFortune => _dailyFortune;
   NameAnalysisResult? get nameAnalysisResult => _nameAnalysisResult;
   NameRecommendResult? get nameRecommendResult => _nameRecommendResult;
@@ -106,12 +110,28 @@ class FortuneProvider extends ChangeNotifier {
 
   Future<void> clearAllSaved() async {
     _fortuneResult = null;
+    _sajuPreview = null;
     _dailyFortune = null;
     _compatibilityResult = null;
     await _storage.clearFortuneResult();
     await _storage.clearDailyFortune();
     await _storage.clearCompatibility();
     notifyListeners();
+  }
+
+  Future<void> fetchSajuPreview(BirthInfo info) async {
+    if (_isPreviewLoading || _sajuPreview != null) return;
+    _isPreviewLoading = true;
+    notifyListeners();
+
+    try {
+      _sajuPreview = await _api.getSajuPreview(info);
+    } catch (e) {
+      debugPrint('Saju preview fetch failed: $e');
+    } finally {
+      _isPreviewLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> fetchFortune(BirthInfo info, {bool consumeTicket = false}) async {

@@ -131,21 +131,7 @@ router.post('/verify-purchase', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'platform, productId, purchaseToken은 필수입니다.' });
     }
 
-    // 중복 방지: 같은 purchaseToken으로 이미 적립했는지 확인
-    const { rows: existing } = await client.query(
-      `SELECT id FROM ticket_transactions WHERE ref_id = $1 AND type = 'purchase'`,
-      [purchaseToken],
-    );
-    if (existing.length > 0) {
-      console.log(`[IAP:verify-purchase] 중복 요청 — 이미 처리된 purchaseToken`);
-      const { rows } = await client.query(
-        'SELECT balance FROM tickets WHERE uid = $1',
-        [req.uid],
-      );
-      return res.json({ balance: rows[0]?.balance ?? 0, duplicate: true });
-    }
-
-    // 스토어 영수증 검증 (Apple/Google)
+    // 스토어 영수증 검증 (Apple/Google) — 트랜잭션 밖에서 수행
     console.log(`[IAP:verify-purchase] 스토어 영수증 검증 시작...`);
     try {
       const verifyResult = await verifyPurchaseReceipt(platform, productId, purchaseToken);
@@ -170,6 +156,24 @@ router.post('/verify-purchase', requireAuth, async (req, res) => {
     console.log(`[IAP:verify-purchase] 지급 티켓 수: ${ticketCount}`);
 
     await client.query('BEGIN');
+
+    // advisory lock으로 동일 purchaseToken 동시 처리 방지
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [purchaseToken]);
+
+    // 중복 방지: 같은 purchaseToken으로 이미 적립했는지 확인 (lock 내부에서)
+    const { rows: existing } = await client.query(
+      `SELECT id FROM ticket_transactions WHERE ref_id = $1 AND type = 'purchase'`,
+      [purchaseToken],
+    );
+    if (existing.length > 0) {
+      await client.query('ROLLBACK');
+      console.log(`[IAP:verify-purchase] 중복 요청 — 이미 처리된 purchaseToken`);
+      const { rows } = await client.query(
+        'SELECT balance FROM tickets WHERE uid = $1',
+        [req.uid],
+      );
+      return res.json({ balance: rows[0]?.balance ?? 0, duplicate: true });
+    }
 
     // 잔액 증가
     await client.query(

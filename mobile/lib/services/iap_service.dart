@@ -17,6 +17,7 @@ class IapService {
   StreamSubscription<List<PurchaseDetails>>? _subscription;
   Map<String, ProductDetails> _products = {};
   bool _available = false;
+  final Set<String> _processingPurchases = {};
 
   /// 구매 성공 후 잔액을 전달하는 콜백
   void Function(int balance)? onBalanceUpdated;
@@ -123,6 +124,14 @@ class IapService {
 
     if (purchase.status == PurchaseStatus.purchased ||
         purchase.status == PurchaseStatus.restored) {
+      // 동일 purchaseID 중복 처리 방지
+      final purchaseId = purchase.purchaseID ?? '';
+      if (purchaseId.isNotEmpty && _processingPurchases.contains(purchaseId)) {
+        debugPrint('[IAP] 이미 처리 중인 구매 — skip: $purchaseId');
+        return;
+      }
+      if (purchaseId.isNotEmpty) _processingPurchases.add(purchaseId);
+
       // 서버에서 검증 (최대 3회 재시도)
       final platform = Platform.isIOS ? 'ios' : 'android';
       debugPrint('[IAP] 서버 검증 요청 — platform: $platform, productId: ${purchase.productID}');
@@ -153,6 +162,8 @@ class IapService {
         debugPrint('[IAP] completePurchase 호출 (verified: $verified)');
         await _iap.completePurchase(purchase);
       }
+
+      if (purchaseId.isNotEmpty) _processingPurchases.remove(purchaseId);
 
       if (!verified) {
         // 실패한 구매 정보를 로컬에 저장하여 나중에 수동 복구 가능

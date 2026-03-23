@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { getGapja } from '@fullstackfamily/manseryeok';
 import { requireAuth } from '../middleware/auth.js';
 import { getSajuInfo } from '../services/saju.js';
-import { calculateMonthScore, analyzeOhengFromGapja } from '../utils/oheng.js';
+import { calculateDayScore } from '../utils/oheng.js';
 import ai from '../config/gemini.js';
 import pool from '../config/db.js';
 import { getSystemPrompt } from '../prompts/system.js';
@@ -57,9 +57,16 @@ router.post('/', requireAuth, async (req, res) => {
     const sajuInfo = getSajuInfo(year, month, day, hour, minute);
     const userOheng = sajuInfo.oheng;
 
+    // 사용자 일간(日干) 오행 추출
+    const dayPillarHangul = sajuInfo.saju.dayPillar?.hangul;
+    const userDayElement = sajuInfo.oheng.elements?.find(e => e.position === dayPillarHangul)?.stem?.element
+      || sajuInfo.oheng.dominant;
+
     // 날짜 범위 내 각 날짜의 점수 계산
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    const [startY, startM, startD] = startDate.split('-').map(Number);
+    const [endY, endM, endD] = endDate.split('-').map(Number);
+    const start = new Date(startY, startM - 1, startD);
+    const end = new Date(endY, endM - 1, endD);
     const dayScores = [];
 
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
@@ -68,15 +75,13 @@ router.post('/', requireAuth, async (req, res) => {
       const dd = d.getDate();
 
       const gapja = getGapja(y, m, dd);
-      const dayOheng = analyzeOhengFromGapja(gapja);
-      const score = calculateMonthScore(userOheng.distribution, dayOheng.distribution);
+      const score = calculateDayScore(userOheng.distribution, userDayElement, gapja);
 
       dayScores.push({
         date: `${y}-${String(m).padStart(2, '0')}-${String(dd).padStart(2, '0')}`,
         pillar: gapja.dayPillar,
         pillarHanja: gapja.dayPillarHanja,
         score,
-        oheng: dayOheng,
       });
     }
 

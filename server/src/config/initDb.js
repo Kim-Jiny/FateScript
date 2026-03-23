@@ -216,6 +216,10 @@ export async function initDb() {
     END $$;
   `);
 
+  // 택일 캐시 전체 삭제 (점수 계산 로직 변경)
+  const { rowCount: auspiciousCount } = await pool.query('DELETE FROM auspicious_date_cache');
+  if (auspiciousCount > 0) console.log(`[initDb] Cleared ${auspiciousCount} auspicious date caches (scoring updated)`);
+
   // ```json 코드펜스가 포함된 깨진 사주 캐시 삭제 (토큰 부족으로 잘린 응답)
   const { rowCount } = await pool.query(`
     DELETE FROM fortune_cache

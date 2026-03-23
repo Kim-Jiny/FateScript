@@ -197,6 +197,25 @@ export async function initDb() {
     END $$;
   `);
 
+  // ticket_transactions에 platform, product_id 컬럼 추가
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'ticket_transactions' AND column_name = 'platform'
+      ) THEN
+        ALTER TABLE ticket_transactions ADD COLUMN platform TEXT;
+      END IF;
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'ticket_transactions' AND column_name = 'product_id'
+      ) THEN
+        ALTER TABLE ticket_transactions ADD COLUMN product_id TEXT;
+      END IF;
+    END $$;
+  `);
+
   // ```json 코드펜스가 포함된 깨진 사주 캐시 삭제 (토큰 부족으로 잘린 응답)
   const { rowCount } = await pool.query(`
     DELETE FROM fortune_cache

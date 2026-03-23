@@ -186,9 +186,9 @@ router.post('/verify-purchase', requireAuth, async (req, res) => {
     );
 
     await client.query(
-      `INSERT INTO ticket_transactions (uid, type, amount, balance_after, ref_id)
-       VALUES ($1, 'purchase', $2, $3, $4)`,
-      [req.uid, ticketCount, rows[0].balance, purchaseToken],
+      `INSERT INTO ticket_transactions (uid, type, amount, balance_after, ref_id, platform, product_id)
+       VALUES ($1, 'purchase', $2, $3, $4, $5, $6)`,
+      [req.uid, ticketCount, rows[0].balance, purchaseToken, platform, productId],
     );
 
     await client.query('COMMIT');
@@ -256,9 +256,9 @@ router.post('/restore-purchases', requireAuth, async (req, res) => {
       );
 
       await pool.query(
-        `INSERT INTO ticket_transactions (uid, type, amount, balance_after, ref_id)
-         VALUES ($1, 'purchase', $2, $3, $4)`,
-        [req.uid, ticketCount, rows[0].balance, purchaseToken],
+        `INSERT INTO ticket_transactions (uid, type, amount, balance_after, ref_id, platform, product_id)
+         VALUES ($1, 'purchase', $2, $3, $4, $5, $6)`,
+        [req.uid, ticketCount, rows[0].balance, purchaseToken, platform || 'ios', productId],
       );
 
       restoredCount++;

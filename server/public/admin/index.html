@@ -225,6 +225,7 @@
       <button onclick="switchTab('users', this)">유저관리</button>
       <button onclick="switchTab('inquiries', this)">문의관리</button>
       <button onclick="switchTab('products', this)">상품관리</button>
+      <button onclick="switchTab('purchases', this)">결제관리</button>
       <button onclick="switchTab('stats', this)">통계</button>
     </div>
 
@@ -235,7 +236,9 @@
         <div class="stat-card"><div class="label">오늘 신규 유저</div><div class="value" id="statTodayUsers">-</div></div>
         <div class="stat-card"><div class="label">총 구매 건수</div><div class="value" id="statPurchaseCount">-</div><div class="sub" id="statPurchaseTickets"></div></div>
         <div class="stat-card"><div class="label">오늘 티켓 소모</div><div class="value" id="statTodayConsumption">-</div></div>
+        <div class="stat-card"><div class="label">오늘 매출</div><div class="value" id="statTodayRevenue">-</div></div>
         <div class="stat-card"><div class="label">7일 활성 유저</div><div class="value" id="statActiveUsers">-</div></div>
+        <div class="stat-card"><div class="label">미답변 문의</div><div class="value" id="statPendingInquiries">-</div></div>
         <div class="stat-card"><div class="label">총 추천 건수</div><div class="value" id="statTotalReferrals">-</div></div>
       </div>
       <h3 style="font-size:15px;font-weight:700;margin-bottom:12px">서비스별 소모 내역</h3>
@@ -273,8 +276,50 @@
         <button class="active" onclick="filterStatus('all', this)">전체</button>
         <button onclick="filterStatus('pending', this)">대기중</button>
         <button onclick="filterStatus('replied', this)">답변완료</button>
+        <span style="margin-left:auto;display:flex;gap:6px;align-items:center;font-size:13px;color:#666">
+          <input type="date" id="inqDateFrom" style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px">
+          ~
+          <input type="date" id="inqDateTo" style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px">
+          <button style="padding:6px 14px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer;font-size:13px" onclick="loadInquiries()">조회</button>
+        </span>
       </div>
       <div class="inquiry-list" id="inquiryList"></div>
+    </div>
+
+    <!-- 결제관리 탭 -->
+    <div class="tab-content" id="tab-purchases">
+      <div class="stat-cards" id="purchaseSummaryCards"></div>
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+        <input type="date" id="purchDateFrom" style="padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px">
+        <span style="color:#999">~</span>
+        <input type="date" id="purchDateTo" style="padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px">
+        <select id="purchProduct" style="padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px">
+          <option value="">전체 상품</option>
+        </select>
+        <select id="purchRefundStatus" style="padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px">
+          <option value="">전체 상태</option>
+          <option value="normal">정상</option>
+          <option value="refunded">환불됨</option>
+        </select>
+        <input type="text" id="purchEmail" placeholder="이메일 검색" style="padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;width:180px">
+        <button onclick="loadPurchases()" style="padding:8px 16px;background:#8A4FFF;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">조회</button>
+      </div>
+      <table class="user-table">
+        <thead>
+          <tr>
+            <th>일시</th>
+            <th>유저</th>
+            <th>상품명</th>
+            <th>티켓</th>
+            <th>가격</th>
+            <th>플랫폼</th>
+            <th>상태</th>
+            <th>관리</th>
+          </tr>
+        </thead>
+        <tbody id="purchaseBody"><tr><td colspan="8" class="empty">조회 버튼을 눌러주세요.</td></tr></tbody>
+      </table>
+      <div class="pagination" id="purchasePagination"></div>
     </div>
 
     <!-- 통계 탭 -->
@@ -425,6 +470,7 @@ function switchTab(tab, btn) {
   if (tab === 'users') loadUsers();
   if (tab === 'inquiries') loadInquiries();
   if (tab === 'products') loadProducts();
+  if (tab === 'purchases') { loadPurchaseSummary(); loadPurchaseProducts(); loadPurchases(); }
   if (tab === 'stats') loadAllStats();
 }
 
@@ -451,7 +497,9 @@ async function loadDashboard() {
     document.getElementById('statPurchaseCount').textContent = data.purchaseCount.toLocaleString();
     document.getElementById('statPurchaseTickets').textContent = `총 ${data.purchaseTickets.toLocaleString()}장`;
     document.getElementById('statTodayConsumption').textContent = data.todayConsumption.toLocaleString() + '건';
+    document.getElementById('statTodayRevenue').textContent = (data.todayRevenue || 0).toLocaleString() + '원';
     document.getElementById('statActiveUsers').textContent = data.activeUsers7d.toLocaleString();
+    document.getElementById('statPendingInquiries').textContent = (data.pendingInquiries || 0).toLocaleString() + '건';
     document.getElementById('statTotalReferrals').textContent = (data.totalReferrals || 0).toLocaleString();
 
     const tbody = document.getElementById('serviceBody');
@@ -709,7 +757,7 @@ async function openUserDetail(uid) {
                 <td>${esc(TXN_TYPE_KR[t.type] || t.type)}</td>
                 <td style="color:${t.amount > 0 ? '#16a34a' : '#dc2626'};font-weight:600">${t.amount > 0 ? '+' : ''}${t.amount}</td>
                 <td>${t.balance_after}</td>
-                <td style="font-size:11px;color:#888">${esc(t.ref_id || '-')}</td>
+                <td style="font-size:11px;color:#888">${fmtRefId(t.ref_id, t.type)}</td>
               </tr>
             `).join('')}
           </tbody>
@@ -841,14 +889,15 @@ function renderPurchaseTable(purchases, uid) {
   if (!purchases || purchases.length === 0) {
     return '<div class="empty" style="padding:20px">구매 내역이 없습니다.</div>';
   }
+  const PLATFORM_KR = { ios: 'iOS', android: 'Android' };
   return `
     <table class="txn-table">
-      <thead><tr><th>일시</th><th>티켓</th><th>상태</th><th>관리</th></tr></thead>
+      <thead><tr><th>일시</th><th>상품</th><th>티켓</th><th>가격</th><th>플랫폼</th><th>상태</th><th>관리</th></tr></thead>
       <tbody>
         ${purchases.map(p => {
           const isRefunded = !!p.refund_id;
           const statusBadge = isRefunded
-            ? `<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:#fef2f2;color:#dc2626">환불됨</span> <span style="font-size:11px;color:#999">(${fmtDate(p.refunded_at)})</span>`
+            ? `<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:#fef2f2;color:#dc2626">환불됨</span>`
             : `<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:#eff6ff;color:#2563eb">정상</span>`;
           const actionBtn = isRefunded
             ? '<span style="color:#999">—</span>'
@@ -856,7 +905,10 @@ function renderPurchaseTable(purchases, uid) {
           return `
             <tr>
               <td>${fmtDate(p.created_at)}</td>
+              <td>${esc(p.product_name || '-')}</td>
               <td style="color:#16a34a;font-weight:600">+${p.amount}장</td>
+              <td>${p.price_krw ? Number(p.price_krw).toLocaleString() + '원' : '-'}</td>
+              <td>${esc(PLATFORM_KR[p.platform] || p.platform || '-')}</td>
               <td>${statusBadge}</td>
               <td>${actionBtn}</td>
             </tr>
@@ -900,7 +952,13 @@ function filterStatus(status, btn) {
 
 async function loadInquiries() {
   try {
-    const url = currentFilter === 'all' ? `${API}/api/admin/inquiries` : `${API}/api/admin/inquiries?status=${currentFilter}`;
+    const params = new URLSearchParams();
+    if (currentFilter !== 'all') params.set('status', currentFilter);
+    const dateFrom = document.getElementById('inqDateFrom')?.value;
+    const dateTo = document.getElementById('inqDateTo')?.value;
+    if (dateFrom) params.set('dateFrom', dateFrom);
+    if (dateTo) params.set('dateTo', dateTo);
+    const url = `${API}/api/admin/inquiries?${params}`;
     const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
     if (res.status === 401) { logout(); return; }
     const data = await res.json();
@@ -919,7 +977,7 @@ function renderList(items) {
       <span class="badge ${i.status}">${i.status === 'replied' ? '답변완료' : '대기중'}</span>
       <div class="inquiry-info">
         <div class="inquiry-title">${esc(i.title)}</div>
-        <div class="inquiry-meta">${esc(i.email || i.uid)} &middot; ${fmtDate(i.created_at)}</div>
+        <div class="inquiry-meta">${esc(i.user_email || i.email || i.uid)} &middot; ${fmtDate(i.created_at)}</div>
       </div>
       <span class="inquiry-category">${esc(i.category)}</span>
     </div>
@@ -1126,6 +1184,23 @@ async function deleteProduct(id, name) {
 
 function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
+function fmtRefId(refId, type) {
+  if (!refId) return '-';
+  if (type === 'purchase') {
+    // purchaseToken은 길이가 길므로 축약
+    return refId.length > 20 ? esc(refId.substring(0, 16)) + '...' : esc(refId);
+  }
+  if (refId.startsWith('refund:')) return '환불 #' + refId.replace('refund:', '');
+  if (refId.startsWith('refund_referral:')) return '추천회수';
+  if (refId.startsWith('admin:')) {
+    const parts = refId.split(':');
+    return parts.length >= 3 ? '관리자(' + esc(parts[1]) + '): ' + esc(parts.slice(2).join(':')) : '관리자(' + esc(parts[1]) + ')';
+  }
+  const SN = SERVICE_NAMES[refId];
+  if (SN) return esc(SN);
+  return esc(refId);
+}
+
 function fmtDate(s) {
   if (!s) return '';
   const d = new Date(s);
@@ -1133,6 +1208,127 @@ function fmtDate(s) {
 }
 
 document.getElementById('password').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+
+// ── Purchases Tab ──
+
+let purchasePage = 1;
+
+async function loadPurchaseSummary() {
+  try {
+    const res = await fetch(`${API}/api/admin/purchases/summary`, { headers: { Authorization: `Bearer ${token}` } });
+    if (res.status === 401) { logout(); return; }
+    const d = await res.json();
+    const iosRev = d.platformRevenue.ios?.revenue || 0;
+    const androidRev = d.platformRevenue.android?.revenue || 0;
+    document.getElementById('purchaseSummaryCards').innerHTML = `
+      <div class="stat-card"><div class="label">오늘 매출</div><div class="value">${d.todayRevenue.toLocaleString()}원</div><div class="sub">${d.todayPurchaseCount}건</div></div>
+      <div class="stat-card"><div class="label">총 매출</div><div class="value">${d.totalRevenue.toLocaleString()}원</div><div class="sub">${d.totalPurchaseCount}건</div></div>
+      <div class="stat-card"><div class="label">총 환불</div><div class="value">${d.totalRefundCount}건</div><div class="sub">${d.totalRefundTickets}장</div></div>
+      <div class="stat-card"><div class="label">iOS 매출</div><div class="value">${iosRev.toLocaleString()}원</div></div>
+      <div class="stat-card"><div class="label">Android 매출</div><div class="value">${androidRev.toLocaleString()}원</div></div>
+    `;
+  } catch (e) {
+    console.error('Purchase summary error:', e);
+  }
+}
+
+async function loadPurchaseProducts() {
+  try {
+    const res = await fetch(`${API}/api/admin/products`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) return;
+    const data = await res.json();
+    const sel = document.getElementById('purchProduct');
+    sel.innerHTML = '<option value="">전체 상품</option>' +
+      (data.products || []).map(p => `<option value="${esc(p.product_id)}">${esc(p.name)}</option>`).join('');
+  } catch (e) { /* ignore */ }
+}
+
+async function loadPurchases() {
+  try {
+    const params = new URLSearchParams({ page: purchasePage, limit: 20 });
+    const dateFrom = document.getElementById('purchDateFrom').value;
+    const dateTo = document.getElementById('purchDateTo').value;
+    const productId = document.getElementById('purchProduct').value;
+    const refundStatus = document.getElementById('purchRefundStatus').value;
+    const email = document.getElementById('purchEmail').value.trim();
+    if (dateFrom) params.set('dateFrom', dateFrom);
+    if (dateTo) params.set('dateTo', dateTo);
+    if (productId) params.set('productId', productId);
+    if (refundStatus) params.set('refundStatus', refundStatus);
+    if (email) params.set('email', email);
+
+    const res = await fetch(`${API}/api/admin/purchases?${params}`, { headers: { Authorization: `Bearer ${token}` } });
+    if (res.status === 401) { logout(); return; }
+    const data = await res.json();
+    renderPurchases(data.purchases || [], data.pagination);
+  } catch (e) {
+    document.getElementById('purchaseBody').innerHTML = '<tr><td colspan="8" class="empty">구매 내역을 불러올 수 없습니다.</td></tr>';
+  }
+}
+
+const PLATFORM_LABEL = { ios: 'iOS', android: 'Android' };
+
+function renderPurchases(items, pg) {
+  const tbody = document.getElementById('purchaseBody');
+  if (items.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" class="empty">구매 내역이 없습니다.</td></tr>';
+    document.getElementById('purchasePagination').innerHTML = '';
+    return;
+  }
+
+  tbody.innerHTML = items.map(p => {
+    const isRefunded = p.is_refunded;
+    const statusBadge = isRefunded
+      ? `<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:#fef2f2;color:#dc2626">환불됨</span>`
+      : `<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:#eff6ff;color:#2563eb">정상</span>`;
+    const actionBtn = isRefunded
+      ? '<span style="color:#999">—</span>'
+      : `<button class="btn-del" onclick="refundPurchaseById(${p.id})">환불</button>`;
+    return `
+      <tr>
+        <td style="font-size:12px">${fmtDate(p.created_at)}</td>
+        <td style="font-size:12px;cursor:pointer;color:#8A4FFF" onclick="openUserDetail('${esc(p.uid)}')" title="${esc(p.uid)}">${esc(p.email || p.uid.substring(0,12)+'...')}</td>
+        <td>${esc(p.product_name || '-')}</td>
+        <td style="color:#16a34a;font-weight:600">+${p.amount}장</td>
+        <td>${p.price_krw ? Number(p.price_krw).toLocaleString() + '원' : '-'}</td>
+        <td>${esc(PLATFORM_LABEL[p.platform] || p.platform || '-')}</td>
+        <td>${statusBadge}</td>
+        <td>${actionBtn}</td>
+      </tr>
+    `;
+  }).join('');
+
+  const pagEl = document.getElementById('purchasePagination');
+  pagEl.innerHTML = `
+    <button onclick="goPurchasePage(${pg.page - 1})" ${pg.page <= 1 ? 'disabled' : ''}>이전</button>
+    <span>${pg.page} / ${pg.totalPages} (총 ${pg.total}건)</span>
+    <button onclick="goPurchasePage(${pg.page + 1})" ${pg.page >= pg.totalPages ? 'disabled' : ''}>다음</button>
+  `;
+}
+
+function goPurchasePage(page) {
+  purchasePage = page;
+  loadPurchases();
+}
+
+async function refundPurchaseById(transactionId) {
+  if (!confirm('이 구매건을 환불하시겠습니까? 잔액에서 차감됩니다.')) return;
+  try {
+    const res = await fetch(`${API}/api/admin/purchases/${transactionId}/refund`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    if (!res.ok) { alert(data.error || '환불 실패'); return; }
+    let msg = '환불 완료!';
+    if (data.referralRevoked) msg += '\n추천 보너스도 양쪽에서 회수되었습니다.';
+    alert(msg);
+    loadPurchases();
+    loadPurchaseSummary();
+  } catch (e) {
+    alert('서버 오류');
+  }
+}
 
 // ── Stats Tab ──
 

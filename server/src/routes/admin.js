@@ -57,18 +57,25 @@ router.post('/login', async (req, res) => {
 // GET /api/admin/inquiries — 전체 문의 목록
 router.get('/inquiries', adminAuth, async (req, res) => {
   try {
-    const status = req.query.status;
-    let query = `SELECT * FROM inquiries`;
+    const { status, dateFrom, dateTo } = req.query;
+    const conditions = [];
     const params = [];
+    let pi = 0;
 
-    if (status && status !== 'all') {
-      query += ' WHERE status = $1';
-      params.push(status);
-    }
+    if (status && status !== 'all') { pi++; conditions.push(`i.status = $${pi}`); params.push(status); }
+    if (dateFrom) { pi++; conditions.push(`i.created_at >= $${pi}`); params.push(dateFrom); }
+    if (dateTo) { pi++; conditions.push(`i.created_at < $${pi}::date + 1`); params.push(dateTo); }
 
-    query += ' ORDER BY created_at DESC LIMIT 100';
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-    const result = await pool.query(query, params);
+    const result = await pool.query(
+      `SELECT i.*, u.email AS user_email
+       FROM inquiries i
+       LEFT JOIN users u ON u.uid = i.uid
+       ${where}
+       ORDER BY i.created_at DESC LIMIT 100`,
+      params
+    );
     res.json({ inquiries: result.rows });
   } catch (error) {
     console.error('Get inquiries error:', error);
@@ -128,7 +135,7 @@ router.put('/inquiries/:id', adminAuth, async (req, res) => {
 // GET /api/admin/stats — 대시보드 통계
 router.get('/stats', adminAuth, async (req, res) => {
   try {
-    const [totalUsers, todayUsers, purchases, todayConsumption, activeUsers, serviceUsage, totalReferrals] = await Promise.all([
+    const [totalUsers, todayUsers, purchases, todayConsumption, activeUsers, serviceUsage, totalReferrals, todayRev, pendingInq] = await Promise.all([
       pool.query('SELECT COUNT(*) AS count FROM users'),
       pool.query("SELECT COUNT(*) AS count FROM users WHERE created_at >= CURRENT_DATE"),
       pool.query("SELECT COUNT(*) AS count, COALESCE(SUM(amount), 0) AS total_tickets FROM ticket_transactions WHERE type = 'purchase'"),
@@ -148,6 +155,13 @@ router.get('/stats', adminAuth, async (req, res) => {
         ORDER BY count DESC
       `),
       pool.query('SELECT COUNT(*) AS count FROM referrals'),
+      pool.query(`
+        SELECT COUNT(*)::int AS count, COALESCE(SUM(p.price_krw), 0)::bigint AS revenue
+        FROM ticket_transactions tt
+        LEFT JOIN iap_products p ON p.product_id = COALESCE(tt.product_id, tt.ref_id)
+        WHERE tt.type = 'purchase' AND tt.created_at >= CURRENT_DATE
+      `),
+      pool.query("SELECT COUNT(*)::int AS count FROM inquiries WHERE status = 'pending'"),
     ]);
 
     res.json({
@@ -159,6 +173,9 @@ router.get('/stats', adminAuth, async (req, res) => {
       activeUsers7d: parseInt(activeUsers.rows[0].count),
       serviceUsage: serviceUsage.rows,
       totalReferrals: parseInt(totalReferrals.rows[0].count),
+      todayRevenue: parseInt(todayRev.rows[0].revenue),
+      todayPurchaseCount: todayRev.rows[0].count,
+      pendingInquiries: pendingInq.rows[0].count,
     });
   } catch (error) {
     console.error('Get stats error:', error);
@@ -222,11 +239,14 @@ router.get('/users/:uid', adminAuth, async (req, res) => {
       pool.query('SELECT balance FROM tickets WHERE uid = $1', [uid]),
       pool.query('SELECT * FROM ticket_transactions WHERE uid = $1 ORDER BY created_at DESC LIMIT 50', [uid]),
       pool.query(`
-        SELECT p.id, p.amount, p.ref_id, p.created_at,
+        SELECT p.id, p.amount, p.ref_id, p.created_at, p.platform, p.product_id,
+               COALESCE(ip.name, COALESCE(p.product_id, p.ref_id)) AS product_name,
+               COALESCE(ip.price_krw, 0) AS price_krw,
                r.id AS refund_id, r.created_at AS refunded_at
         FROM ticket_transactions p
         LEFT JOIN ticket_transactions r
           ON r.ref_id = CONCAT('refund:', p.id::text) AND r.type = 'refund'
+        LEFT JOIN iap_products ip ON ip.product_id = COALESCE(p.product_id, p.ref_id)
         WHERE p.uid = $1 AND p.type = 'purchase'
         ORDER BY p.created_at DESC
       `, [uid]),
@@ -343,6 +363,85 @@ router.post('/users/:uid/grant-tickets', adminAuth, async (req, res) => {
   }
 });
 
+// ── Refund Helper ──
+
+async function processRefund(client, transactionId, uid) {
+  // 1. 해당 구매 트랜잭션 조회
+  const txResult = await client.query(
+    "SELECT * FROM ticket_transactions WHERE id = $1 AND type = 'purchase'",
+    [transactionId]
+  );
+  if (txResult.rows.length === 0) {
+    return { error: '해당 구매 건을 찾을 수 없습니다.', status: 404 };
+  }
+  const purchaseTx = txResult.rows[0];
+  const txUid = uid || purchaseTx.uid;
+
+  // 2. 이미 환불됐는지 확인
+  const refundCheck = await client.query(
+    "SELECT id FROM ticket_transactions WHERE ref_id = $1 AND type = 'refund'",
+    [`refund:${transactionId}`]
+  );
+  if (refundCheck.rows.length > 0) {
+    return { error: '이미 환불된 구매 건입니다.', status: 409 };
+  }
+
+  // 3. 잔액에서 티켓 차감 (최소 0)
+  await client.query(
+    'UPDATE tickets SET balance = GREATEST(balance - $1, 0), updated_at = now() WHERE uid = $2',
+    [purchaseTx.amount, txUid]
+  );
+  const balResult = await client.query('SELECT balance FROM tickets WHERE uid = $1', [txUid]);
+  const balanceAfter = balResult.rows[0]?.balance ?? 0;
+
+  // 4. 환불 트랜잭션 기록
+  await client.query(
+    `INSERT INTO ticket_transactions (uid, type, amount, balance_after, ref_id, created_at)
+     VALUES ($1, 'refund', $2, $3, $4, now())`,
+    [txUid, -purchaseTx.amount, balanceAfter, `refund:${transactionId}`]
+  );
+
+  // 5. 추천 회수 판단: 환불 후 남은 유효 구매 건수 확인
+  const remainResult = await client.query(
+    `SELECT COUNT(*) AS count FROM ticket_transactions p
+     WHERE p.uid = $1 AND p.type = 'purchase'
+       AND NOT EXISTS (
+         SELECT 1 FROM ticket_transactions r
+         WHERE r.ref_id = CONCAT('refund:', p.id::text) AND r.type = 'refund'
+       )`,
+    [txUid]
+  );
+  const remainingPurchases = parseInt(remainResult.rows[0].count);
+
+  let referralRevoked = false;
+  if (remainingPurchases === 0) {
+    const refRow = await client.query(
+      'SELECT referrer_uid FROM referrals WHERE referred_uid = $1',
+      [txUid]
+    );
+    if (refRow.rows.length > 0) {
+      const referrerUid = refRow.rows[0].referrer_uid;
+      for (const targetUid of [txUid, referrerUid]) {
+        await client.query(
+          'UPDATE tickets SET balance = GREATEST(balance - 3, 0), updated_at = now() WHERE uid = $1',
+          [targetUid]
+        );
+        const bRes = await client.query('SELECT balance FROM tickets WHERE uid = $1', [targetUid]);
+        const bAfter = bRes.rows[0]?.balance ?? 0;
+        await client.query(
+          `INSERT INTO ticket_transactions (uid, type, amount, balance_after, ref_id, created_at)
+           VALUES ($1, 'refund_referral', -3, $2, $3, now())`,
+          [targetUid, bAfter, `refund_referral:${txUid}`]
+        );
+      }
+      await client.query('DELETE FROM referrals WHERE referred_uid = $1', [txUid]);
+      referralRevoked = true;
+    }
+  }
+
+  return { success: true, balance: balanceAfter, referralRevoked, uid: txUid };
+}
+
 // POST /api/admin/users/:uid/refund — 구매 환불
 router.post('/users/:uid/refund', adminAuth, async (req, res) => {
   const client = await pool.connect();
@@ -355,92 +454,158 @@ router.post('/users/:uid/refund', adminAuth, async (req, res) => {
     }
 
     await client.query('BEGIN');
-
-    // 1. 해당 구매 트랜잭션 조회
-    const txResult = await client.query(
-      "SELECT * FROM ticket_transactions WHERE id = $1 AND uid = $2 AND type = 'purchase'",
-      [transactionId, uid]
-    );
-    if (txResult.rows.length === 0) {
+    const result = await processRefund(client, transactionId, uid);
+    if (result.error) {
       await client.query('ROLLBACK');
-      return res.status(404).json({ error: '해당 구매 건을 찾을 수 없습니다.' });
+      return res.status(result.status).json({ error: result.error });
     }
-    const purchaseTx = txResult.rows[0];
-
-    // 2. 이미 환불됐는지 확인
-    const refundCheck = await client.query(
-      "SELECT id FROM ticket_transactions WHERE ref_id = $1 AND type = 'refund'",
-      [`refund:${transactionId}`]
-    );
-    if (refundCheck.rows.length > 0) {
-      await client.query('ROLLBACK');
-      return res.status(409).json({ error: '이미 환불된 구매 건입니다.' });
-    }
-
-    // 3. 잔액에서 티켓 차감 (최소 0)
-    await client.query(
-      'UPDATE tickets SET balance = GREATEST(balance - $1, 0), updated_at = now() WHERE uid = $2',
-      [purchaseTx.amount, uid]
-    );
-    const balResult = await client.query('SELECT balance FROM tickets WHERE uid = $1', [uid]);
-    const balanceAfter = balResult.rows[0]?.balance ?? 0;
-
-    // 4. 환불 트랜잭션 기록
-    await client.query(
-      `INSERT INTO ticket_transactions (uid, type, amount, balance_after, ref_id, created_at)
-       VALUES ($1, 'refund', $2, $3, $4, now())`,
-      [uid, -purchaseTx.amount, balanceAfter, `refund:${transactionId}`]
-    );
-
-    // 5. 추천 회수 판단: 환불 후 남은 유효 구매 건수 확인
-    const remainResult = await client.query(
-      `SELECT COUNT(*) AS count FROM ticket_transactions p
-       WHERE p.uid = $1 AND p.type = 'purchase'
-         AND NOT EXISTS (
-           SELECT 1 FROM ticket_transactions r
-           WHERE r.ref_id = CONCAT('refund:', p.id::text) AND r.type = 'refund'
-         )`,
-      [uid]
-    );
-    const remainingPurchases = parseInt(remainResult.rows[0].count);
-
-    let referralRevoked = false;
-    if (remainingPurchases === 0) {
-      // 추천 보너스 양쪽 회수
-      const refRow = await client.query(
-        'SELECT referrer_uid FROM referrals WHERE referred_uid = $1',
-        [uid]
-      );
-      if (refRow.rows.length > 0) {
-        const referrerUid = refRow.rows[0].referrer_uid;
-
-        // 양쪽 잔액에서 3장씩 차감 (최소 0)
-        for (const targetUid of [uid, referrerUid]) {
-          await client.query(
-            'UPDATE tickets SET balance = GREATEST(balance - 3, 0), updated_at = now() WHERE uid = $1',
-            [targetUid]
-          );
-          const bRes = await client.query('SELECT balance FROM tickets WHERE uid = $1', [targetUid]);
-          const bAfter = bRes.rows[0]?.balance ?? 0;
-          await client.query(
-            `INSERT INTO ticket_transactions (uid, type, amount, balance_after, ref_id, created_at)
-             VALUES ($1, 'refund_referral', -3, $2, $3, now())`,
-            [targetUid, bAfter, `refund_referral:${uid}`]
-          );
-        }
-
-        // referrals 레코드 삭제
-        await client.query('DELETE FROM referrals WHERE referred_uid = $1', [uid]);
-        referralRevoked = true;
-      }
-    }
-
     await client.query('COMMIT');
 
-    res.json({ success: true, balance: balanceAfter, referralRevoked });
+    res.json({ success: true, balance: result.balance, referralRevoked: result.referralRevoked });
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Refund error:', error);
+    res.status(500).json({ error: 'Failed to process refund' });
+  } finally {
+    client.release();
+  }
+});
+
+// ── Purchase Management ──
+
+// GET /api/admin/purchases — 전체 구매 목록 (필터, 페이지네이션)
+router.get('/purchases', adminAuth, async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const offset = (page - 1) * limit;
+    const { dateFrom, dateTo, productId, refundStatus, email } = req.query;
+
+    const conditions = ["tt.type = 'purchase'"];
+    const params = [];
+    let pi = 0;
+
+    if (dateFrom) { pi++; conditions.push(`tt.created_at >= $${pi}`); params.push(dateFrom); }
+    if (dateTo) { pi++; conditions.push(`tt.created_at < $${pi}::date + 1`); params.push(dateTo); }
+    if (productId) { pi++; conditions.push(`COALESCE(tt.product_id, tt.ref_id) = $${pi}`); params.push(productId); }
+    if (email) { pi++; conditions.push(`u.email ILIKE $${pi}`); params.push(`%${email}%`); }
+
+    if (refundStatus === 'refunded') {
+      conditions.push(`EXISTS (SELECT 1 FROM ticket_transactions r WHERE r.ref_id = CONCAT('refund:', tt.id::text) AND r.type = 'refund')`);
+    } else if (refundStatus === 'normal') {
+      conditions.push(`NOT EXISTS (SELECT 1 FROM ticket_transactions r WHERE r.ref_id = CONCAT('refund:', tt.id::text) AND r.type = 'refund')`);
+    }
+
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const countQuery = `
+      SELECT COUNT(*) AS count
+      FROM ticket_transactions tt
+      LEFT JOIN users u ON u.uid = tt.uid
+      ${where}
+    `;
+    const dataQuery = `
+      SELECT tt.id, tt.uid, tt.amount, tt.balance_after, tt.ref_id, tt.created_at,
+             tt.platform, tt.product_id,
+             u.email,
+             COALESCE(p.name, COALESCE(tt.product_id, tt.ref_id)) AS product_name,
+             COALESCE(p.price_krw, 0) AS price_krw,
+             CASE WHEN r.id IS NOT NULL THEN true ELSE false END AS is_refunded,
+             r.created_at AS refunded_at
+      FROM ticket_transactions tt
+      LEFT JOIN users u ON u.uid = tt.uid
+      LEFT JOIN iap_products p ON p.product_id = COALESCE(tt.product_id, tt.ref_id)
+      LEFT JOIN ticket_transactions r ON r.ref_id = CONCAT('refund:', tt.id::text) AND r.type = 'refund'
+      ${where}
+      ORDER BY tt.created_at DESC
+      LIMIT $${pi + 1} OFFSET $${pi + 2}
+    `;
+
+    const [countResult, dataResult] = await Promise.all([
+      pool.query(countQuery, params),
+      pool.query(dataQuery, [...params, limit, offset]),
+    ]);
+
+    const total = parseInt(countResult.rows[0].count);
+
+    res.json({
+      purchases: dataResult.rows,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
+  } catch (error) {
+    console.error('Get purchases error:', error);
+    res.status(500).json({ error: 'Failed to get purchases' });
+  }
+});
+
+// GET /api/admin/purchases/summary — 구매 요약 통계
+router.get('/purchases/summary', adminAuth, async (req, res) => {
+  try {
+    const [todayRev, totalRev, totalRefund, platformRev] = await Promise.all([
+      pool.query(`
+        SELECT COUNT(*)::int AS count, COALESCE(SUM(p.price_krw), 0)::bigint AS revenue
+        FROM ticket_transactions tt
+        LEFT JOIN iap_products p ON p.product_id = COALESCE(tt.product_id, tt.ref_id)
+        WHERE tt.type = 'purchase' AND tt.created_at >= CURRENT_DATE
+      `),
+      pool.query(`
+        SELECT COUNT(*)::int AS count, COALESCE(SUM(p.price_krw), 0)::bigint AS revenue
+        FROM ticket_transactions tt
+        LEFT JOIN iap_products p ON p.product_id = COALESCE(tt.product_id, tt.ref_id)
+        WHERE tt.type = 'purchase'
+      `),
+      pool.query(`
+        SELECT COUNT(*)::int AS count, COALESCE(SUM(ABS(tt.amount)), 0)::int AS tickets
+        FROM ticket_transactions tt
+        WHERE tt.type = 'refund'
+      `),
+      pool.query(`
+        SELECT COALESCE(tt.platform, 'unknown') AS platform,
+               COUNT(*)::int AS count,
+               COALESCE(SUM(p.price_krw), 0)::bigint AS revenue
+        FROM ticket_transactions tt
+        LEFT JOIN iap_products p ON p.product_id = COALESCE(tt.product_id, tt.ref_id)
+        WHERE tt.type = 'purchase'
+        GROUP BY COALESCE(tt.platform, 'unknown')
+      `),
+    ]);
+
+    const platformMap = {};
+    platformRev.rows.forEach(r => { platformMap[r.platform] = { count: r.count, revenue: parseInt(r.revenue) }; });
+
+    res.json({
+      todayRevenue: parseInt(todayRev.rows[0].revenue),
+      todayPurchaseCount: todayRev.rows[0].count,
+      totalRevenue: parseInt(totalRev.rows[0].revenue),
+      totalPurchaseCount: totalRev.rows[0].count,
+      totalRefundCount: totalRefund.rows[0].count,
+      totalRefundTickets: totalRefund.rows[0].tickets,
+      platformRevenue: platformMap,
+    });
+  } catch (error) {
+    console.error('Get purchase summary error:', error);
+    res.status(500).json({ error: 'Failed to get purchase summary' });
+  }
+});
+
+// POST /api/admin/purchases/:id/refund — 구매건 직접 환불
+router.post('/purchases/:id/refund', adminAuth, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const transactionId = req.params.id;
+
+    await client.query('BEGIN');
+    const result = await processRefund(client, transactionId);
+    if (result.error) {
+      await client.query('ROLLBACK');
+      return res.status(result.status).json({ error: result.error });
+    }
+    await client.query('COMMIT');
+
+    res.json({ success: true, balance: result.balance, referralRevoked: result.referralRevoked });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Purchase refund error:', error);
     res.status(500).json({ error: 'Failed to process refund' });
   } finally {
     client.release();
@@ -597,24 +762,24 @@ router.get('/stats/revenue', adminAuth, async (req, res) => {
     const [dailyRev, totalRev, periodRev, ranking, paying, totalUsers] = await Promise.all([
       pool.query(`
         SELECT DATE(tt.created_at) AS date, COUNT(*)::int AS count, COALESCE(SUM(p.price_krw), 0)::int AS revenue
-        FROM ticket_transactions tt LEFT JOIN iap_products p ON p.product_id = tt.ref_id
+        FROM ticket_transactions tt LEFT JOIN iap_products p ON p.product_id = COALESCE(tt.product_id, tt.ref_id)
         WHERE tt.type = 'purchase' ${a}
         GROUP BY DATE(tt.created_at) ORDER BY date
       `),
       pool.query(`
         SELECT COUNT(*)::int AS count, COALESCE(SUM(p.price_krw), 0)::bigint AS revenue
-        FROM ticket_transactions tt LEFT JOIN iap_products p ON p.product_id = tt.ref_id
+        FROM ticket_transactions tt LEFT JOIN iap_products p ON p.product_id = COALESCE(tt.product_id, tt.ref_id)
         WHERE tt.type = 'purchase'
       `),
       since ? pool.query(`
         SELECT COUNT(*)::int AS count, COALESCE(SUM(p.price_krw), 0)::bigint AS revenue
-        FROM ticket_transactions tt LEFT JOIN iap_products p ON p.product_id = tt.ref_id
+        FROM ticket_transactions tt LEFT JOIN iap_products p ON p.product_id = COALESCE(tt.product_id, tt.ref_id)
         WHERE tt.type = 'purchase' AND tt.created_at >= ${since}
       `) : null,
       pool.query(`
         SELECT tt.ref_id AS product_id, COALESCE(p.name, tt.ref_id) AS name,
                COUNT(*)::int AS sales, COALESCE(SUM(p.price_krw), 0)::bigint AS revenue, SUM(tt.amount)::int AS tickets
-        FROM ticket_transactions tt LEFT JOIN iap_products p ON p.product_id = tt.ref_id
+        FROM ticket_transactions tt LEFT JOIN iap_products p ON p.product_id = COALESCE(tt.product_id, tt.ref_id)
         WHERE tt.type = 'purchase' ${a}
         GROUP BY tt.ref_id, p.name ORDER BY sales DESC
       `),

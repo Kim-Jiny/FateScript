@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import pool from '../config/db.js';
 import { verifyPurchaseReceipt } from '../services/iap-verify.js';
+import { TICKET_COST } from '../utils/ticket-consume.js';
 
 const router = Router();
 
@@ -63,16 +64,6 @@ router.get('/history', requireAuth, async (req, res) => {
  * POST /api/tickets/consume — 서비스별 티켓 소모
  * body: { type } — fortune type (daily, fortune, name_analyze, name_recommend, compatibility)
  */
-const TICKET_COST = {
-  daily: 1,
-  fortune: 3,
-  name_analyze: 1,
-  name_recommend: 2,
-  compatibility: 2,
-  auspicious_date: 2,
-  team_compatibility: 3,
-};
-
 router.post('/consume', requireAuth, async (req, res) => {
   const client = await pool.connect();
   try {

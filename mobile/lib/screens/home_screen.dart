@@ -371,8 +371,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 6),
                 GestureDetector(
-                  onTap: () {
-                    Share.share(
+                  onTap: () async {
+                    await Share.share(
                       '운명일기에서 AI 사주 분석을 받아보세요! 추천 코드를 입력하면 티켓 3장을 드려요.\nhttps://fate.jiny.shop/ref/$_referralCode',
                     );
                   },

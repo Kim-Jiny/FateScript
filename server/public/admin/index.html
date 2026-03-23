@@ -174,6 +174,30 @@
   .stats-table th { background: #f9fafb; padding: 8px 12px; text-align: left; color: #6b7280; font-weight: 600; font-size: 12px; border-bottom: 1px solid #e5e7eb; }
   .stats-table td { padding: 8px 12px; border-bottom: 1px solid #f0f0f0; }
   .stats-table tr:last-child td { border-bottom: none; }
+
+  /* Detail tabs inside modal */
+  .detail-tabs { display: flex; gap: 0; border-bottom: 2px solid #e5e7eb; margin-bottom: 16px; }
+  .detail-tab { padding: 8px 14px; border: none; background: none; cursor: pointer; font-size: 13px; font-weight: 600; color: #999; border-bottom: 2px solid transparent; margin-bottom: -2px; white-space: nowrap; }
+  .detail-tab.active { color: #8A4FFF; border-bottom-color: #8A4FFF; }
+  .detail-tab-content { display: none; }
+  .detail-tab-content.active { display: block; }
+
+  /* History items */
+  .history-item { background: #f9fafb; border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; cursor: pointer; transition: background 0.15s; }
+  .history-item:hover { background: #f3eeff; }
+  .hi-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .hi-header .hi-title { font-size: 13px; font-weight: 600; flex: 1; min-width: 0; }
+  .hi-header .hi-date { font-size: 11px; color: #999; flex-shrink: 0; }
+  .hi-detail { display: none; margin-top: 10px; padding: 10px; background: #fff; border-radius: 6px; font-size: 12px; line-height: 1.7; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; border: 1px solid #e5e7eb; }
+  .history-item.open .hi-detail { display: block; }
+  .type-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; margin-right: 6px; }
+
+  /* Inline edit */
+  .inline-edit { display: inline-flex; gap: 6px; align-items: center; }
+  .inline-edit input { padding: 4px 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; width: 140px; letter-spacing: 2px; text-transform: uppercase; }
+  .inline-edit button { padding: 4px 10px; border: 1px solid #ddd; border-radius: 6px; background: #fff; cursor: pointer; font-size: 12px; }
+  .inline-edit .btn-save-inline { border-color: #8A4FFF; color: #8A4FFF; }
+  .inline-edit .btn-cancel-inline { color: #999; }
 </style>
 </head>
 <body>
@@ -341,7 +365,7 @@
 
 <!-- User Detail Modal -->
 <div class="detail-overlay" id="userDetailOverlay" onclick="if(event.target===this)closeUserDetail()">
-  <div class="detail-box" id="userDetailBox" style="width:700px"></div>
+  <div class="detail-box" id="userDetailBox" style="width:900px"></div>
 </div>
 
 <script>
@@ -501,15 +525,178 @@ function goUserPage(page) {
   loadUsers();
 }
 
+let _currentDetailUid = null;
+
 async function openUserDetail(uid) {
   try {
     const res = await fetch(`${API}/api/admin/users/${uid}`, { headers: { Authorization: `Bearer ${token}` } });
     if (!res.ok) { alert('유저 정보를 불러올 수 없습니다.'); return; }
     const data = await res.json();
     const u = data.user;
+    _currentDetailUid = uid;
 
     const genderText = u.gender === 'male' ? '남' : u.gender === 'female' ? '여' : (u.gender || '-');
+    const GENDER_KR = { male: '남', female: '여' };
+    const REL_KR = { lover: '연인', spouse: '부부', friend: '친구', colleague: '동료', family: '가족', parent_child: '부모자녀', other: '기타' };
+    const TXN_TYPE_KR = { purchase: '구매', consume: '소모', refund: '환불', refund_referral: '추천회수', signup_bonus: '가입보너스', referral_bonus: '추천보너스', admin_grant: '관리자지급', admin_revoke: '관리자회수' };
+    const RESULT_TYPE_KR = { fortune: '사주운세', daily: '오늘의운세', compatibility: '궁합', name_analyze: '이름해석', name_recommend: '이름추천' };
+    const TYPE_COLORS = { fortune: '#8A4FFF', daily: '#f59e0b', compatibility: '#ec4899', name_analyze: '#3b82f6', name_recommend: '#22c55e' };
 
+    // ── Tab 1: 기본정보 ──
+    const referredByHtml = data.referredBy
+      ? `${esc(data.referredBy.referrer_email || data.referredBy.referrer_uid)}${data.referredBy.referral_date ? ` <span style="font-size:11px;color:#999">(${fmtDate(data.referredBy.referral_date)})</span>` : ''}`
+      : '없음';
+
+    let referredUsersHtml = '';
+    if (data.referredUsers && data.referredUsers.length > 0) {
+      referredUsersHtml = `
+        <div class="section-title">추천한 유저 (${data.referredUsers.length}명)</div>
+        <table class="txn-table">
+          <thead><tr><th>이메일/UID</th><th>추천일</th></tr></thead>
+          <tbody>
+            ${data.referredUsers.map(r => `
+              <tr style="cursor:pointer" onclick="openUserDetail('${esc(r.referred_uid)}')">
+                <td style="color:#8A4FFF">${esc(r.email || r.referred_uid.substring(0,12)+'...')}</td>
+                <td>${fmtDate(r.created_at)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    const tab1 = `
+      <div class="user-detail-grid" style="margin-top:8px">
+        <div class="field"><div class="label">UID</div><div class="val" style="font-size:11px;word-break:break-all">${esc(u.uid)}</div></div>
+        <div class="field"><div class="label">이메일</div><div class="val">${esc(u.email || '-')}</div></div>
+        <div class="field"><div class="label">생년월일</div><div class="val">${esc(u.birth_date || '-')}</div></div>
+        <div class="field"><div class="label">생시</div><div class="val">${esc(u.birth_time || '-')}</div></div>
+        <div class="field"><div class="label">성별</div><div class="val">${genderText}</div></div>
+        <div class="field"><div class="label">가입일</div><div class="val">${fmtDate(u.created_at)}</div></div>
+      </div>
+
+      <div class="mini-cards" style="grid-template-columns:repeat(4,1fr)">
+        <div class="mini-card"><div class="num">${data.balance}</div><div class="lbl">보유 티켓</div></div>
+        <div class="mini-card"><div class="num">${data.resultsCount}</div><div class="lbl">저장된 결과</div></div>
+        <div class="mini-card"><div class="num">${data.compatibilityCount}</div><div class="lbl">궁합 히스토리</div></div>
+        <div class="mini-card"><div class="num">${data.referralsMade || 0}</div><div class="lbl">추천한 수</div></div>
+      </div>
+
+      <div class="user-detail-grid" style="grid-template-columns:1fr 1fr;margin-bottom:8px">
+        <div class="field">
+          <div class="label">추천 코드</div>
+          <div class="val" id="referralCodeDisplay" style="color:#8A4FFF;letter-spacing:2px">
+            ${esc(u.referral_code || '-')}
+            <button class="btn-edit" style="margin-left:8px;font-size:11px" onclick="startEditReferralCode('${esc(u.uid)}', '${esc(u.referral_code || '')}')">수정</button>
+          </div>
+        </div>
+        <div class="field"><div class="label">추천인</div><div class="val">${referredByHtml}</div></div>
+      </div>
+
+      ${referredUsersHtml}
+    `;
+
+    // ── Tab 2: 저장된 결과 ──
+    let tab2 = '';
+    if (data.userResults && data.userResults.length > 0) {
+      tab2 = data.userResults.map(r => {
+        const typeLabel = RESULT_TYPE_KR[r.type] || r.type;
+        const typeColor = TYPE_COLORS[r.type] || '#888';
+        let paramSummary = '';
+        if (r.params) {
+          try {
+            const p = typeof r.params === 'string' ? JSON.parse(r.params) : r.params;
+            paramSummary = Object.entries(p).map(([k,v]) => `${k}: ${v}`).join(', ');
+          } catch { paramSummary = ''; }
+        }
+        const resultText = r.result ? (typeof r.result === 'string' ? r.result : JSON.stringify(r.result, null, 2)) : '결과 없음';
+        return `
+          <div class="history-item" onclick="this.classList.toggle('open')">
+            <div class="hi-header">
+              <div class="hi-title"><span class="type-badge" style="background:${typeColor}20;color:${typeColor}">${esc(typeLabel)}</span>${paramSummary ? esc(paramSummary.substring(0,60)) : ''}</div>
+              <div class="hi-date">${fmtDate(r.created_at)}</div>
+            </div>
+            <div class="hi-detail">${esc(resultText)}</div>
+          </div>
+        `;
+      }).join('');
+    } else {
+      tab2 = '<div class="empty" style="padding:30px">저장된 결과가 없습니다.</div>';
+    }
+
+    // ── Tab 3: 궁합 기록 ──
+    let tab3 = '';
+    // 1:1 궁합
+    if (data.compatibilityHistory && data.compatibilityHistory.length > 0) {
+      tab3 += '<div class="section-title">1:1 궁합</div>';
+      tab3 += data.compatibilityHistory.map(c => {
+        const rel = REL_KR[c.relationship] || c.relationship || '-';
+        const myG = GENDER_KR[c.my_gender] || c.my_gender || '?';
+        const pG = GENDER_KR[c.partner_gender] || c.partner_gender || '?';
+        const resultText = c.result ? (typeof c.result === 'string' ? c.result : JSON.stringify(c.result, null, 2)) : '결과 없음';
+        return `
+          <div class="history-item" onclick="this.classList.toggle('open')">
+            <div class="hi-header">
+              <div class="hi-title"><span class="type-badge" style="background:#ec489920;color:#ec4899">${esc(rel)}</span>${esc(c.my_birth_date||'')}(${myG}) vs ${esc(c.partner_birth_date||'')}(${pG})</div>
+              <div class="hi-date">${fmtDate(c.created_at)}</div>
+            </div>
+            <div class="hi-detail">${esc(resultText)}</div>
+          </div>
+        `;
+      }).join('');
+    }
+    // 팀 궁합
+    if (data.teamCompatibilityHistory && data.teamCompatibilityHistory.length > 0) {
+      tab3 += '<div class="section-title" style="margin-top:16px">팀 궁합</div>';
+      tab3 += data.teamCompatibilityHistory.map(t => {
+        const rel = REL_KR[t.relationship] || t.relationship || '-';
+        let memberNames = '';
+        try {
+          const members = typeof t.members === 'string' ? JSON.parse(t.members) : t.members;
+          if (Array.isArray(members)) {
+            memberNames = members.map(m => m.name || m.이름 || '?').join(', ');
+          }
+        } catch { memberNames = '멤버 정보 파싱 오류'; }
+        const resultText = t.result ? (typeof t.result === 'string' ? t.result : JSON.stringify(t.result, null, 2)) : '결과 없음';
+        return `
+          <div class="history-item" onclick="this.classList.toggle('open')">
+            <div class="hi-header">
+              <div class="hi-title"><span class="type-badge" style="background:#6366f120;color:#6366f1">${esc(rel)}</span>${esc(memberNames)}</div>
+              <div class="hi-date">${fmtDate(t.created_at)}</div>
+            </div>
+            <div class="hi-detail">${esc(resultText)}</div>
+          </div>
+        `;
+      }).join('');
+    }
+    if (!tab3) {
+      tab3 = '<div class="empty" style="padding:30px">궁합 기록이 없습니다.</div>';
+    }
+
+    // ── Tab 4: 성명학 기록 ──
+    let tab4 = '';
+    if (data.nameHistory && data.nameHistory.length > 0) {
+      tab4 = data.nameHistory.map(n => {
+        const modeLabel = n.mode === 'recommend' ? '추천' : '분석';
+        const modeColor = n.mode === 'recommend' ? '#22c55e' : '#3b82f6';
+        const nameStr = (n.last_name || '') + (n.name || '');
+        const gStr = GENDER_KR[n.gender] || n.gender || '?';
+        const resultText = n.result ? (typeof n.result === 'string' ? n.result : JSON.stringify(n.result, null, 2)) : '결과 없음';
+        return `
+          <div class="history-item" onclick="this.classList.toggle('open')">
+            <div class="hi-header">
+              <div class="hi-title"><span class="type-badge" style="background:${modeColor}20;color:${modeColor}">${esc(modeLabel)}</span>${esc(nameStr)} (${esc(n.birth_date||'-')}, ${gStr})</div>
+              <div class="hi-date">${fmtDate(n.created_at)}</div>
+            </div>
+            <div class="hi-detail">${esc(resultText)}</div>
+          </div>
+        `;
+      }).join('');
+    } else {
+      tab4 = '<div class="empty" style="padding:30px">성명학 기록이 없습니다.</div>';
+    }
+
+    // ── Tab 5: 티켓 내역 ──
     let txnHtml = '';
     if (data.transactions && data.transactions.length > 0) {
       txnHtml = `
@@ -519,7 +706,7 @@ async function openUserDetail(uid) {
             ${data.transactions.map(t => `
               <tr>
                 <td>${fmtDate(t.created_at)}</td>
-                <td>${esc(t.type)}</td>
+                <td>${esc(TXN_TYPE_KR[t.type] || t.type)}</td>
                 <td style="color:${t.amount > 0 ? '#16a34a' : '#dc2626'};font-weight:600">${t.amount > 0 ? '+' : ''}${t.amount}</td>
                 <td>${t.balance_after}</td>
                 <td style="font-size:11px;color:#888">${esc(t.ref_id || '-')}</td>
@@ -532,39 +719,39 @@ async function openUserDetail(uid) {
       txnHtml = '<div class="empty" style="padding:20px">거래 내역이 없습니다.</div>';
     }
 
+    const tab5 = `
+      <div class="section-title">티켓 지급 / 회수</div>
+      <div class="grant-form">
+        <input type="number" id="grantAmount" placeholder="수량 (음수=회수)" style="width:140px">
+        <input type="text" id="grantMemo" placeholder="사유 (선택)" style="width:180px">
+        <button onclick="grantTickets('${esc(u.uid)}')">실행</button>
+      </div>
+
+      <div class="section-title">구매 영수증</div>
+      ${renderPurchaseTable(data.purchases || [], u.uid)}
+
+      <div class="section-title">거래 내역 (최근 50건)</div>
+      ${txnHtml}
+    `;
+
+    // ── Assemble tabs ──
     document.getElementById('userDetailBox').innerHTML = `
       <button class="close-btn" onclick="closeUserDetail()">&times;</button>
       <h2>유저 상세</h2>
 
-      <div class="user-detail-grid" style="margin-top:16px">
-        <div class="field"><div class="label">UID</div><div class="val" style="font-size:11px;word-break:break-all">${esc(u.uid)}</div></div>
-        <div class="field"><div class="label">이메일</div><div class="val">${esc(u.email || '-')}</div></div>
-        <div class="field"><div class="label">생년월일</div><div class="val">${esc(u.birth_date || '-')}</div></div>
-        <div class="field"><div class="label">성별</div><div class="val">${genderText}</div></div>
-        <div class="field"><div class="label">가입일</div><div class="val">${fmtDate(u.created_at)}</div></div>
-        <div class="field"><div class="label">수정일</div><div class="val">${fmtDate(u.updated_at)}</div></div>
+      <div class="detail-tabs">
+        <button class="detail-tab active" onclick="switchDetailTab('dtab-info', this)">기본정보</button>
+        <button class="detail-tab" onclick="switchDetailTab('dtab-results', this)">저장된 결과 (${(data.userResults||[]).length})</button>
+        <button class="detail-tab" onclick="switchDetailTab('dtab-compat', this)">궁합 기록</button>
+        <button class="detail-tab" onclick="switchDetailTab('dtab-name', this)">성명학 (${(data.nameHistory||[]).length})</button>
+        <button class="detail-tab" onclick="switchDetailTab('dtab-tickets', this)">티켓 내역</button>
       </div>
 
-      <div class="mini-cards" style="grid-template-columns:repeat(4,1fr)">
-        <div class="mini-card"><div class="num">${data.balance}</div><div class="lbl">보유 티켓</div></div>
-        <div class="mini-card"><div class="num">${data.resultsCount}</div><div class="lbl">저장된 결과</div></div>
-        <div class="mini-card"><div class="num">${data.compatibilityCount}</div><div class="lbl">궁합 히스토리</div></div>
-        <div class="mini-card"><div class="num">${data.referralsMade || 0}</div><div class="lbl">추천한 수</div></div>
-      </div>
-
-      <div class="user-detail-grid" style="grid-template-columns:1fr 1fr;margin-bottom:8px">
-        <div class="field"><div class="label">추천 코드</div><div class="val" style="color:#8A4FFF;letter-spacing:2px">${esc(u.referral_code || '-')}</div></div>
-        <div class="field"><div class="label">추천인</div><div class="val">${data.referredBy ? esc(data.referredBy.referrer_email || data.referredBy.referrer_uid) : '없음'}</div></div>
-      </div>
-
-      <div class="section-title">티켓 지급</div>
-      <div class="grant-form">
-        <input type="number" id="grantAmount" placeholder="수량" min="1">
-        <button onclick="grantTickets('${esc(u.uid)}')">지급</button>
-      </div>
-
-      <div class="section-title">거래 내역 (최근 50건)</div>
-      ${txnHtml}
+      <div class="detail-tab-content active" id="dtab-info">${tab1}</div>
+      <div class="detail-tab-content" id="dtab-results">${tab2}</div>
+      <div class="detail-tab-content" id="dtab-compat">${tab3}</div>
+      <div class="detail-tab-content" id="dtab-name">${tab4}</div>
+      <div class="detail-tab-content" id="dtab-tickets">${tab5}</div>
     `;
 
     document.getElementById('userDetailOverlay').classList.add('show');
@@ -574,25 +761,126 @@ async function openUserDetail(uid) {
   }
 }
 
+function switchDetailTab(tabId, btn) {
+  document.querySelectorAll('#userDetailBox .detail-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#userDetailBox .detail-tab-content').forEach(el => el.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(tabId).classList.add('active');
+}
+
 function closeUserDetail() {
   document.getElementById('userDetailOverlay').classList.remove('show');
+  _currentDetailUid = null;
+}
+
+function startEditReferralCode(uid, currentCode) {
+  const display = document.getElementById('referralCodeDisplay');
+  display.innerHTML = `
+    <div class="inline-edit">
+      <input type="text" id="editReferralInput" value="${esc(currentCode)}" maxlength="20">
+      <button class="btn-save-inline" onclick="saveReferralCode('${esc(uid)}')">저장</button>
+      <button class="btn-cancel-inline" onclick="openUserDetail('${esc(uid)}')">취소</button>
+    </div>
+  `;
+  document.getElementById('editReferralInput').focus();
+}
+
+async function saveReferralCode(uid) {
+  const input = document.getElementById('editReferralInput');
+  const code = input.value.trim();
+  if (!code) { alert('추천 코드를 입력하세요.'); return; }
+
+  try {
+    const res = await fetch(`${API}/api/admin/users/${uid}/referral-code`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ referralCode: code })
+    });
+    const data = await res.json();
+    if (!res.ok) { alert(data.error || '저장 실패'); return; }
+    alert('추천 코드가 변경되었습니다.');
+    openUserDetail(uid);
+  } catch (e) {
+    alert('서버 오류');
+  }
 }
 
 async function grantTickets(uid) {
   const amountInput = document.getElementById('grantAmount');
+  const memoInput = document.getElementById('grantMemo');
   const amount = parseInt(amountInput.value);
-  if (!amount || amount <= 0) { alert('지급할 수량을 입력하세요.'); return; }
-  if (!confirm(`${amount}장의 티켓을 지급하시겠습니까?`)) return;
+  if (!amount || amount === 0) { alert('수량을 입력하세요 (음수=회수).'); return; }
+
+  const action = amount > 0 ? '지급' : '회수';
+  const memo = memoInput ? memoInput.value.trim() : '';
+  const confirmMsg = memo
+    ? `${Math.abs(amount)}장의 티켓을 ${action}하시겠습니까?\n사유: ${memo}`
+    : `${Math.abs(amount)}장의 티켓을 ${action}하시겠습니까?`;
+  if (!confirm(confirmMsg)) return;
 
   try {
+    const body = { amount };
+    if (memo) body.memo = memo;
     const res = await fetch(`${API}/api/admin/users/${uid}/grant-tickets`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ amount })
+      body: JSON.stringify(body)
     });
     const data = await res.json();
-    if (!res.ok) { alert(data.error || '지급 실패'); return; }
-    alert(`지급 완료! 현재 잔액: ${data.balance}장`);
+    if (!res.ok) { alert(data.error || `${action} 실패`); return; }
+    alert(`${action} 완료! 현재 잔액: ${data.balance}장`);
+    openUserDetail(uid);
+  } catch (e) {
+    alert('서버 오류');
+  }
+}
+
+// ── Purchases / Refund ──
+
+function renderPurchaseTable(purchases, uid) {
+  if (!purchases || purchases.length === 0) {
+    return '<div class="empty" style="padding:20px">구매 내역이 없습니다.</div>';
+  }
+  return `
+    <table class="txn-table">
+      <thead><tr><th>일시</th><th>티켓</th><th>상태</th><th>관리</th></tr></thead>
+      <tbody>
+        ${purchases.map(p => {
+          const isRefunded = !!p.refund_id;
+          const statusBadge = isRefunded
+            ? `<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:#fef2f2;color:#dc2626">환불됨</span> <span style="font-size:11px;color:#999">(${fmtDate(p.refunded_at)})</span>`
+            : `<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:#eff6ff;color:#2563eb">정상</span>`;
+          const actionBtn = isRefunded
+            ? '<span style="color:#999">—</span>'
+            : `<button class="btn-del" onclick="refundPurchase('${esc(uid)}', ${p.id}, ${p.amount})">환불</button>`;
+          return `
+            <tr>
+              <td>${fmtDate(p.created_at)}</td>
+              <td style="color:#16a34a;font-weight:600">+${p.amount}장</td>
+              <td>${statusBadge}</td>
+              <td>${actionBtn}</td>
+            </tr>
+          `;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+async function refundPurchase(uid, transactionId, amount) {
+  if (!confirm(`${amount}장 환불하시겠습니까? 잔액에서 차감됩니다.`)) return;
+
+  try {
+    const res = await fetch(`${API}/api/admin/users/${uid}/refund`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ transactionId })
+    });
+    const data = await res.json();
+    if (!res.ok) { alert(data.error || '환불 실패'); return; }
+    let msg = `환불 완료! 현재 잔액: ${data.balance}장`;
+    if (data.referralRevoked) msg += '\n추천 보너스도 양쪽에서 회수되었습니다.';
+    alert(msg);
     openUserDetail(uid);
   } catch (e) {
     alert('서버 오류');

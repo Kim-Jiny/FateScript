@@ -1129,7 +1129,7 @@ class _NameScreenState extends State<NameScreen> {
                   ? null
                   : () => _submitRecommend(birthProvider, fortuneProvider),
               icon: const Icon(Icons.auto_awesome),
-              label: const Text('이름 추천받기 (2티켓)'),
+              label: const Text('이름 추천받기 (1티켓)'),
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 backgroundColor: const Color(0xFF8A4FFF),

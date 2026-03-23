@@ -19,6 +19,7 @@ class IapService {
   /// 구매 성공 후 잔액을 전달하는 콜백
   void Function(int balance)? onBalanceUpdated;
   void Function(String error)? onPurchaseError;
+  VoidCallback? onPurchaseCanceled;
 
   Map<String, ProductDetails> get products => _products;
   bool get isAvailable => _available;
@@ -153,6 +154,7 @@ class IapService {
       }
     } else if (purchase.status == PurchaseStatus.canceled) {
       debugPrint('[IAP] 구매 취소됨');
+      onPurchaseCanceled?.call();
       if (purchase.pendingCompletePurchase) {
         await _iap.completePurchase(purchase);
       }

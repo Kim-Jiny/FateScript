@@ -283,6 +283,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
                       context,
                       label: product.label,
                       price: price,
+                      isLoading: ticketProvider.isPurchasing,
                       onTap: ticketProvider.isPurchasing
                           ? null
                           : () => ticketProvider.buyProduct(product.productId),
@@ -300,6 +301,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
     BuildContext context, {
     required String label,
     required String price,
+    bool isLoading = false,
     VoidCallback? onTap,
   }) {
     return GestureDetector(
@@ -307,29 +309,43 @@ class _MyPageScreenState extends State<MyPageScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFF8A4FFF),
+          color: isLoading ? const Color(0xFF8A4FFF).withValues(alpha: 0.6) : const Color(0xFF8A4FFF),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Column(
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
+        child: isLoading
+            ? const SizedBox(
+                height: 38,
+                child: Center(
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              )
+            : Column(
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    price,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              price,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 11,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -385,13 +401,18 @@ class _MyPageScreenState extends State<MyPageScreen> {
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      _referralCode!,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF8A4FFF),
-                        letterSpacing: 3,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        _referralCode!,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF8A4FFF),
+                          letterSpacing: 3,
+                        ),
+                        maxLines: 1,
                       ),
                     ),
                   ),
@@ -431,8 +452,8 @@ class _MyPageScreenState extends State<MyPageScreen> {
                   ),
                   const SizedBox(width: 8),
                   GestureDetector(
-                    onTap: () {
-                      Share.share(
+                    onTap: () async {
+                      await Share.share(
                         '운명일기에서 AI 사주 분석을 받아보세요! 추천 코드를 입력하면 티켓 3장을 드려요.\nhttps://fate.jiny.shop/ref/$_referralCode',
                       );
                     },

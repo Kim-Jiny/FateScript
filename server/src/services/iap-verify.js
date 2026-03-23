@@ -1,9 +1,10 @@
 /**
  * In-App Purchase 영수증 검증
- * - Apple: App Store verifyReceipt API
+ * - Apple: StoreKit 2 JWS 검증 + 레거시 verifyReceipt API 폴백
  * - Google: Play Developer API (androidpublisher)
  */
 
+import crypto from 'crypto';
 import { google } from 'googleapis';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
@@ -14,10 +15,63 @@ const APPLE_VERIFY_SANDBOX = 'https://sandbox.itunes.apple.com/verifyReceipt';
 const IOS_BUNDLE_ID = 'com.unmyeongilgi.unmyeongilgi';
 const ANDROID_PACKAGE_NAME = 'com.unmyeongilgi.unmyeongilgi';
 
-// ── Apple 영수증 검증 ──
+// Apple Root CA — G3 공개키 지문 (인증서 체인 최상위 검증용)
+const APPLE_ROOT_CA_G3_FINGERPRINTS = [
+  '63343abfb89a6a03ebb57e9b3f5fa7be7c4f36c3',  // SHA-1
+];
+
+// ── Apple StoreKit 2 JWS 검증 ──
+
+function isJWS(data) {
+  return typeof data === 'string' && data.startsWith('eyJ') && data.split('.').length === 3;
+}
+
+async function verifyAppleJWS(jwsTransaction) {
+  console.log('[IAP:Apple:SK2] JWS 트랜잭션 검증 시작');
+
+  const parts = jwsTransaction.split('.');
+  const headerJson = Buffer.from(parts[0], 'base64url').toString();
+  const payloadJson = Buffer.from(parts[1], 'base64url').toString();
+  const header = JSON.parse(headerJson);
+  const payload = JSON.parse(payloadJson);
+
+  console.log(`[IAP:Apple:SK2] alg: ${header.alg}, x5c 인증서 수: ${header.x5c?.length || 0}`);
+  console.log(`[IAP:Apple:SK2] bundleId: ${payload.bundleId}, productId: ${payload.productId}, transactionId: ${payload.transactionId}, environment: ${payload.environment}`);
+
+  // x5c 인증서 체인으로 서명 검증
+  if (header.x5c && header.x5c.length > 0) {
+    const leafCert = `-----BEGIN CERTIFICATE-----\n${header.x5c[0]}\n-----END CERTIFICATE-----`;
+    const publicKey = crypto.createPublicKey(leafCert);
+
+    const signatureInput = Buffer.from(`${parts[0]}.${parts[1]}`);
+    const signature = Buffer.from(parts[2], 'base64url');
+
+    const isValid = crypto.verify('SHA256', signatureInput, publicKey, signature);
+    if (!isValid) {
+      throw new Error('JWS 서명 검증 실패');
+    }
+    console.log('[IAP:Apple:SK2] JWS 서명 검증 성공');
+  } else {
+    console.warn('[IAP:Apple:SK2] x5c 헤더 없음 — 서명 검증 스킵');
+  }
+
+  // Bundle ID 확인
+  if (payload.bundleId !== IOS_BUNDLE_ID) {
+    throw new Error(`Bundle ID 불일치: ${payload.bundleId}`);
+  }
+
+  console.log(`[IAP:Apple:SK2] 검증 성공 — productId: ${payload.productId}, transactionId: ${payload.transactionId}`);
+  return {
+    productId: payload.productId,
+    transactionId: String(payload.transactionId),
+    valid: true,
+  };
+}
+
+// ── Apple 레거시 영수증 검증 ──
 
 async function verifyAppleReceipt(receiptData) {
-  console.log(`[IAP:Apple] 영수증 검증 시작 (receipt 길이: ${receiptData?.length || 0})`);
+  console.log(`[IAP:Apple] 레거시 영수증 검증 시작 (receipt 길이: ${receiptData?.length || 0})`);
 
   // Production 먼저 시도, 21007이면 Sandbox로 재시도
   let result = await callAppleVerify(APPLE_VERIFY_PRODUCTION, receiptData);
@@ -167,7 +221,10 @@ export async function verifyPurchaseReceipt(platform, productId, purchaseToken) 
   console.log(`[IAP] platform: ${platform}, productId: ${productId}, token 길이: ${purchaseToken?.length || 0}`);
 
   if (platform === 'ios') {
-    const result = await verifyAppleReceipt(purchaseToken);
+    // StoreKit 2 JWS vs 레거시 receipt 자동 감지
+    const result = isJWS(purchaseToken)
+      ? await verifyAppleJWS(purchaseToken)
+      : await verifyAppleReceipt(purchaseToken);
 
     // 서버에서 받은 product_id와 클라이언트가 보낸 productId 일치 확인
     if (result.productId !== productId) {

@@ -7,6 +7,7 @@ import ai from '../config/gemini.js';
 import pool from '../config/db.js';
 import { getSystemPrompt } from '../prompts/system.js';
 import { buildAuspiciousDatePrompt } from '../prompts/system.js';
+import { consumeTicketForService, refundTicketForService } from '../utils/ticket-consume.js';
 
 const router = Router();
 const MODEL = 'gemini-2.5-flash';
@@ -17,13 +18,13 @@ const MODEL = 'gemini-2.5-flash';
  */
 router.post('/', requireAuth, async (req, res) => {
   try {
-    const { birthDate, birthTime, gender, eventType, startDate, endDate } = req.body ?? {};
+    const { birthDate, birthTime, gender, eventType, startDate, endDate, consumeTicket } = req.body ?? {};
 
     if (!birthDate || !gender || !eventType || !startDate || !endDate) {
       return res.status(400).json({ error: 'birthDate, gender, eventType, startDate, endDate는 필수입니다.' });
     }
 
-    // 캐시 확인
+    // 캐시 확인 (티켓 차감 전에 중복 방지)
     const cacheKey = `auspicious:${birthDate}-${birthTime}-${gender}:${eventType}:${startDate}:${endDate}`;
     const { rows: cached } = await pool.query(
       'SELECT result FROM auspicious_date_cache WHERE cache_key = $1',
@@ -32,6 +33,18 @@ router.post('/', requireAuth, async (req, res) => {
     if (cached.length > 0) {
       return res.json(cached[0].result);
     }
+
+    // 티켓 차감 (요청 시)
+    let ticketBalance;
+    if (consumeTicket) {
+      const ticketResult = await consumeTicketForService(req.uid, 'auspicious_date');
+      if (!ticketResult.success) {
+        return res.status(402).json({ error: '티켓이 부족합니다.', balance: ticketResult.balance, required: ticketResult.required });
+      }
+      ticketBalance = ticketResult.balance;
+    }
+
+    try {
 
     const [year, month, day] = birthDate.split('-').map(Number);
     let hour = null, minute = null;
@@ -101,7 +114,14 @@ router.post('/', requireAuth, async (req, res) => {
       [cacheKey, JSON.stringify(result)],
     );
 
+    if (ticketBalance !== undefined) result._balance = ticketBalance;
     res.json(result);
+    } catch (serviceErr) {
+      if (consumeTicket && ticketBalance !== undefined) {
+        await refundTicketForService(req.uid, 'auspicious_date');
+      }
+      throw serviceErr;
+    }
   } catch (err) {
     console.error('Auspicious date error:', err);
     res.status(500).json({ error: '택일 분석 중 오류가 발생했습니다.' });

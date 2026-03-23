@@ -217,14 +217,28 @@ router.get('/users/:uid', adminAuth, async (req, res) => {
   try {
     const { uid } = req.params;
 
-    const [userResult, balanceResult, txResult, resultsCount, compatCount, referralsMade, referredBy] = await Promise.all([
+    const [userResult, balanceResult, txResult, purchaseResult, resultsCount, compatCount, referralsMade, referredBy, userResults, compatHistory, teamCompatHistory, nameHistory, referredUsers] = await Promise.all([
       pool.query('SELECT * FROM users WHERE uid = $1', [uid]),
       pool.query('SELECT balance FROM tickets WHERE uid = $1', [uid]),
       pool.query('SELECT * FROM ticket_transactions WHERE uid = $1 ORDER BY created_at DESC LIMIT 50', [uid]),
+      pool.query(`
+        SELECT p.id, p.amount, p.ref_id, p.created_at,
+               r.id AS refund_id, r.created_at AS refunded_at
+        FROM ticket_transactions p
+        LEFT JOIN ticket_transactions r
+          ON r.ref_id = CONCAT('refund:', p.id::text) AND r.type = 'refund'
+        WHERE p.uid = $1 AND p.type = 'purchase'
+        ORDER BY p.created_at DESC
+      `, [uid]),
       pool.query('SELECT COUNT(*) AS count FROM user_results WHERE uid = $1', [uid]),
       pool.query('SELECT COUNT(*) AS count FROM compatibility_history WHERE uid = $1', [uid]),
       pool.query('SELECT COUNT(*) AS count FROM referrals WHERE referrer_uid = $1', [uid]),
-      pool.query(`SELECT r.referrer_uid, u.email AS referrer_email FROM referrals r LEFT JOIN users u ON u.uid = r.referrer_uid WHERE r.referred_uid = $1`, [uid]),
+      pool.query(`SELECT r.referrer_uid, u.email AS referrer_email, r.created_at AS referral_date FROM referrals r LEFT JOIN users u ON u.uid = r.referrer_uid WHERE r.referred_uid = $1`, [uid]),
+      pool.query('SELECT type, params, result, year, date, created_at FROM user_results WHERE uid = $1 ORDER BY created_at DESC', [uid]),
+      pool.query('SELECT id, my_birth_date, my_birth_time, my_gender, partner_birth_date, partner_birth_time, partner_gender, relationship, result, created_at FROM compatibility_history WHERE uid = $1 ORDER BY created_at DESC LIMIT 20', [uid]),
+      pool.query('SELECT id, members, relationship, result, created_at FROM team_compatibility_history WHERE uid = $1 ORDER BY created_at DESC LIMIT 20', [uid]),
+      pool.query('SELECT id, mode, name, last_name, birth_date, birth_time, gender, result, created_at FROM name_history WHERE uid = $1 ORDER BY created_at DESC LIMIT 20', [uid]),
+      pool.query('SELECT r.referred_uid, u.email, r.created_at FROM referrals r LEFT JOIN users u ON u.uid = r.referred_uid WHERE r.referrer_uid = $1 ORDER BY r.created_at DESC', [uid]),
     ]);
 
     if (userResult.rows.length === 0) {
@@ -235,14 +249,45 @@ router.get('/users/:uid', adminAuth, async (req, res) => {
       user: userResult.rows[0],
       balance: balanceResult.rows[0]?.balance ?? 0,
       transactions: txResult.rows,
+      purchases: purchaseResult.rows,
       resultsCount: parseInt(resultsCount.rows[0].count),
       compatibilityCount: parseInt(compatCount.rows[0].count),
       referralsMade: parseInt(referralsMade.rows[0].count),
       referredBy: referredBy.rows[0] || null,
+      userResults: userResults.rows,
+      compatibilityHistory: compatHistory.rows,
+      teamCompatibilityHistory: teamCompatHistory.rows,
+      nameHistory: nameHistory.rows,
+      referredUsers: referredUsers.rows,
     });
   } catch (error) {
     console.error('Get user detail error:', error);
     res.status(500).json({ error: 'Failed to get user detail' });
+  }
+});
+
+// PUT /api/admin/users/:uid/referral-code — 추천코드 변경
+router.put('/users/:uid/referral-code', adminAuth, async (req, res) => {
+  try {
+    const { uid } = req.params;
+    const { referralCode } = req.body;
+
+    if (!referralCode?.trim()) {
+      return res.status(400).json({ error: 'referralCode is required' });
+    }
+
+    const code = referralCode.trim().toUpperCase();
+
+    const dup = await pool.query('SELECT uid FROM users WHERE referral_code = $1 AND uid != $2', [code, uid]);
+    if (dup.rows.length > 0) {
+      return res.status(409).json({ error: '이미 사용 중인 추천 코드입니다.' });
+    }
+
+    await pool.query('UPDATE users SET referral_code = $1 WHERE uid = $2', [code, uid]);
+    res.json({ success: true, referralCode: code });
+  } catch (error) {
+    console.error('Update referral code error:', error);
+    res.status(500).json({ error: 'Failed to update referral code' });
   }
 });
 
@@ -251,13 +296,22 @@ router.post('/users/:uid/grant-tickets', adminAuth, async (req, res) => {
   const client = await pool.connect();
   try {
     const { uid } = req.params;
-    const { amount } = req.body;
+    const { amount, memo } = req.body;
 
-    if (!amount || !Number.isInteger(amount) || amount <= 0) {
-      return res.status(400).json({ error: 'amount must be a positive integer' });
+    if (amount === 0 || amount === undefined || amount === null || !Number.isInteger(amount)) {
+      return res.status(400).json({ error: 'amount must be a non-zero integer' });
     }
 
     await client.query('BEGIN');
+
+    if (amount < 0) {
+      const balCheck = await client.query('SELECT balance FROM tickets WHERE uid = $1', [uid]);
+      const currentBalance = balCheck.rows[0]?.balance ?? 0;
+      if (currentBalance + amount < 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: `잔액 부족: 현재 ${currentBalance}장, 회수 요청 ${Math.abs(amount)}장` });
+      }
+    }
 
     await client.query(
       `INSERT INTO tickets (uid, balance, updated_at) VALUES ($1, $2, now())
@@ -268,10 +322,13 @@ router.post('/users/:uid/grant-tickets', adminAuth, async (req, res) => {
     const balResult = await client.query('SELECT balance FROM tickets WHERE uid = $1', [uid]);
     const balanceAfter = balResult.rows[0].balance;
 
+    const type = amount < 0 ? 'admin_revoke' : 'admin_grant';
+    const refId = memo?.trim() ? `admin:${req.admin.username}:${memo.trim()}` : `admin:${req.admin.username}`;
+
     await client.query(
       `INSERT INTO ticket_transactions (uid, type, amount, balance_after, ref_id, created_at)
-       VALUES ($1, 'admin_grant', $2, $3, $4, now())`,
-      [uid, amount, balanceAfter, `admin:${req.admin.username}`]
+       VALUES ($1, $2, $3, $4, $5, now())`,
+      [uid, type, amount, balanceAfter, refId]
     );
 
     await client.query('COMMIT');
@@ -281,6 +338,110 @@ router.post('/users/:uid/grant-tickets', adminAuth, async (req, res) => {
     await client.query('ROLLBACK');
     console.error('Grant tickets error:', error);
     res.status(500).json({ error: 'Failed to grant tickets' });
+  } finally {
+    client.release();
+  }
+});
+
+// POST /api/admin/users/:uid/refund — 구매 환불
+router.post('/users/:uid/refund', adminAuth, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { uid } = req.params;
+    const { transactionId } = req.body;
+
+    if (!transactionId) {
+      return res.status(400).json({ error: 'transactionId is required' });
+    }
+
+    await client.query('BEGIN');
+
+    // 1. 해당 구매 트랜잭션 조회
+    const txResult = await client.query(
+      "SELECT * FROM ticket_transactions WHERE id = $1 AND uid = $2 AND type = 'purchase'",
+      [transactionId, uid]
+    );
+    if (txResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: '해당 구매 건을 찾을 수 없습니다.' });
+    }
+    const purchaseTx = txResult.rows[0];
+
+    // 2. 이미 환불됐는지 확인
+    const refundCheck = await client.query(
+      "SELECT id FROM ticket_transactions WHERE ref_id = $1 AND type = 'refund'",
+      [`refund:${transactionId}`]
+    );
+    if (refundCheck.rows.length > 0) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: '이미 환불된 구매 건입니다.' });
+    }
+
+    // 3. 잔액에서 티켓 차감 (최소 0)
+    await client.query(
+      'UPDATE tickets SET balance = GREATEST(balance - $1, 0), updated_at = now() WHERE uid = $2',
+      [purchaseTx.amount, uid]
+    );
+    const balResult = await client.query('SELECT balance FROM tickets WHERE uid = $1', [uid]);
+    const balanceAfter = balResult.rows[0]?.balance ?? 0;
+
+    // 4. 환불 트랜잭션 기록
+    await client.query(
+      `INSERT INTO ticket_transactions (uid, type, amount, balance_after, ref_id, created_at)
+       VALUES ($1, 'refund', $2, $3, $4, now())`,
+      [uid, -purchaseTx.amount, balanceAfter, `refund:${transactionId}`]
+    );
+
+    // 5. 추천 회수 판단: 환불 후 남은 유효 구매 건수 확인
+    const remainResult = await client.query(
+      `SELECT COUNT(*) AS count FROM ticket_transactions p
+       WHERE p.uid = $1 AND p.type = 'purchase'
+         AND NOT EXISTS (
+           SELECT 1 FROM ticket_transactions r
+           WHERE r.ref_id = CONCAT('refund:', p.id::text) AND r.type = 'refund'
+         )`,
+      [uid]
+    );
+    const remainingPurchases = parseInt(remainResult.rows[0].count);
+
+    let referralRevoked = false;
+    if (remainingPurchases === 0) {
+      // 추천 보너스 양쪽 회수
+      const refRow = await client.query(
+        'SELECT referrer_uid FROM referrals WHERE referred_uid = $1',
+        [uid]
+      );
+      if (refRow.rows.length > 0) {
+        const referrerUid = refRow.rows[0].referrer_uid;
+
+        // 양쪽 잔액에서 3장씩 차감 (최소 0)
+        for (const targetUid of [uid, referrerUid]) {
+          await client.query(
+            'UPDATE tickets SET balance = GREATEST(balance - 3, 0), updated_at = now() WHERE uid = $1',
+            [targetUid]
+          );
+          const bRes = await client.query('SELECT balance FROM tickets WHERE uid = $1', [targetUid]);
+          const bAfter = bRes.rows[0]?.balance ?? 0;
+          await client.query(
+            `INSERT INTO ticket_transactions (uid, type, amount, balance_after, ref_id, created_at)
+             VALUES ($1, 'refund_referral', -3, $2, $3, now())`,
+            [targetUid, bAfter, `refund_referral:${uid}`]
+          );
+        }
+
+        // referrals 레코드 삭제
+        await client.query('DELETE FROM referrals WHERE referred_uid = $1', [uid]);
+        referralRevoked = true;
+      }
+    }
+
+    await client.query('COMMIT');
+
+    res.json({ success: true, balance: balanceAfter, referralRevoked });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Refund error:', error);
+    res.status(500).json({ error: 'Failed to process refund' });
   } finally {
     client.release();
   }

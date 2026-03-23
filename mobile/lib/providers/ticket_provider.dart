@@ -34,6 +34,11 @@ class TicketProvider extends ChangeNotifier {
       _isPurchasing = false;
       notifyListeners();
     };
+    _iap.onPurchaseCanceled = () {
+      debugPrint('[TicketProvider] 구매 취소');
+      _isPurchasing = false;
+      notifyListeners();
+    };
     await loadProducts();
     final ids = _products.map((p) => p.productId).toSet();
     debugPrint('[TicketProvider] 서버 상품 ${_products.length}개 → IAP 초기화 (IDs: $ids)');
@@ -69,8 +74,6 @@ class TicketProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } on InsufficientTicketsException {
-      _balance = 0;
-      notifyListeners();
       rethrow;
     }
   }
@@ -80,13 +83,36 @@ class TicketProvider extends ChangeNotifier {
     _error = null;
     notifyListeners();
 
-    final started = await _iap.buyProduct(productId);
-    if (!started) {
+    try {
+      final started = await _iap.buyProduct(productId);
+      if (!started) {
+        _isPurchasing = false;
+        _error = '구매를 시작할 수 없습니다.';
+        notifyListeners();
+      }
+      // 구매 결과는 IAP 콜백을 통해 전달됨
+    } catch (e) {
+      debugPrint('[TicketProvider] buyProduct 예외: $e');
       _isPurchasing = false;
-      _error = '구매를 시작할 수 없습니다.';
+      _error = '구매 중 오류가 발생했습니다.';
       notifyListeners();
     }
-    // 구매 결과는 IAP 콜백을 통해 전달됨
+  }
+
+  /// API 응답에서 받은 잔액으로 직접 업데이트
+  void setBalance(int balance) {
+    _balance = balance;
+    notifyListeners();
+  }
+
+  /// ApiService.lastConsumedBalance가 있으면 잔액 동기화
+  void syncBalanceFromApi() {
+    final api = ApiService();
+    if (api.lastConsumedBalance != null) {
+      _balance = api.lastConsumedBalance;
+      api.lastConsumedBalance = null;
+      notifyListeners();
+    }
   }
 
   void clearBalance() {

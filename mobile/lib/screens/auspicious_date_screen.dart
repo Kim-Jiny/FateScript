@@ -89,7 +89,7 @@ class _AuspiciousDateScreenState extends State<AuspiciousDateScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     ),
-                    child: const Text('길일 찾기 (2티켓)'),
+                    child: const Text('길일 찾기 (1티켓)'),
                   ),
                 ),
                 if (_error != null) ...[
@@ -162,7 +162,7 @@ class _AuspiciousDateScreenState extends State<AuspiciousDateScreen> {
           context: context,
           builder: (_) => AlertDialog(
             title: const Text('티켓 부족'),
-            content: const Text('티켓이 부족합니다. (필요: 2장)\n마이페이지에서 티켓을 구매해 주세요.'),
+            content: const Text('티켓이 부족합니다. (필요: 1장)\n마이페이지에서 티켓을 구매해 주세요.'),
             actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('확인'))],
           ),
         );

@@ -114,15 +114,19 @@ class FortuneProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> fetchFortune(BirthInfo info) async {
+  Future<void> fetchFortune(BirthInfo info, {bool consumeTicket = false}) async {
     if (_isLoading) return;
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      _fortuneResult = await _api.getFortune(info);
+      _fortuneResult = await _api.getFortune(info, consumeTicket: consumeTicket);
       await _storage.saveFortuneResult(_fortuneResult!);
+    } on InsufficientTicketsException {
+      _isLoading = false;
+      notifyListeners();
+      rethrow;
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -131,15 +135,19 @@ class FortuneProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> fetchDailyFortune(BirthInfo info) async {
+  Future<void> fetchDailyFortune(BirthInfo info, {bool consumeTicket = false}) async {
     if (_isLoading) return;
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      _dailyFortune = await _api.getDailyFortune(info);
+      _dailyFortune = await _api.getDailyFortune(info, consumeTicket: consumeTicket);
       await _storage.saveDailyFortune(_dailyFortune!);
+    } on InsufficientTicketsException {
+      _isLoading = false;
+      notifyListeners();
+      rethrow;
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -149,7 +157,7 @@ class FortuneProvider extends ChangeNotifier {
   }
 
   Future<void> analyzeName(BirthInfo info, String name,
-      {bool isLoggedIn = false}) async {
+      {bool isLoggedIn = false, bool consumeTicket = false}) async {
     if (_isLoading) return;
     _isLoading = true;
     _error = null;
@@ -157,7 +165,7 @@ class FortuneProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _nameAnalysisResult = await _api.analyzeName(info, name);
+      _nameAnalysisResult = await _api.analyzeName(info, name, consumeTicket: consumeTicket);
 
       // 히스토리에 추가
       if (isLoggedIn) {
@@ -177,6 +185,10 @@ class FortuneProvider extends ChangeNotifier {
         await _storage.addNameHistoryEntry(entry);
         _nameHistory.insert(0, NameHistoryItem.fromJson(entry));
       }
+    } on InsufficientTicketsException {
+      _isLoading = false;
+      notifyListeners();
+      rethrow;
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -186,7 +198,7 @@ class FortuneProvider extends ChangeNotifier {
   }
 
   Future<void> recommendNames(BirthInfo info, String lastName,
-      {bool isLoggedIn = false}) async {
+      {bool isLoggedIn = false, bool consumeTicket = false}) async {
     if (_isLoading) return;
     _isLoading = true;
     _error = null;
@@ -194,7 +206,7 @@ class FortuneProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _nameRecommendResult = await _api.recommendNames(info, lastName);
+      _nameRecommendResult = await _api.recommendNames(info, lastName, consumeTicket: consumeTicket);
 
       // 히스토리에 추가
       if (isLoggedIn) {
@@ -214,6 +226,10 @@ class FortuneProvider extends ChangeNotifier {
         await _storage.addNameHistoryEntry(entry);
         _nameHistory.insert(0, NameHistoryItem.fromJson(entry));
       }
+    } on InsufficientTicketsException {
+      _isLoading = false;
+      notifyListeners();
+      rethrow;
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -224,7 +240,7 @@ class FortuneProvider extends ChangeNotifier {
 
   Future<void> fetchCompatibility(
       BirthInfo myInfo, BirthInfo partnerInfo, String relationship,
-      {bool isLoggedIn = false}) async {
+      {bool isLoggedIn = false, bool consumeTicket = false}) async {
     if (_isLoading) return;
     _isLoading = true;
     _error = null;
@@ -233,7 +249,7 @@ class FortuneProvider extends ChangeNotifier {
 
     try {
       _compatibilityResult =
-          await _api.getCompatibility(myInfo, partnerInfo, relationship);
+          await _api.getCompatibility(myInfo, partnerInfo, relationship, consumeTicket: consumeTicket);
       await _storage.saveCompatibility(_compatibilityResult!);
 
       // 히스토리에 추가
@@ -258,6 +274,10 @@ class FortuneProvider extends ChangeNotifier {
         _compatibilityHistory.insert(
             0, CompatibilityHistoryItem.fromJson(entry));
       }
+    } on InsufficientTicketsException {
+      _isLoading = false;
+      notifyListeners();
+      rethrow;
     } catch (e) {
       _error = e.toString();
     } finally {

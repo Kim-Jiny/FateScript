@@ -1,16 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
 import '../providers/birth_info_provider.dart';
 import '../providers/fortune_provider.dart';
-import '../providers/ticket_provider.dart';
-import '../services/api_service.dart';
 import '../widgets/loading_overlay.dart';
 import '../widgets/share_button.dart';
 import '../widgets/pdf_button.dart';
 import 'input_screen.dart';
-import 'login_screen.dart';
 
 class DailyScreen extends StatelessWidget {
   const DailyScreen({super.key});
@@ -67,49 +63,9 @@ class DailyScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _fetchWithTicket(BuildContext context, BirthInfoProvider birthProvider, FortuneProvider fortuneProvider) async {
+  Future<void> _fetchDaily(BuildContext context, BirthInfoProvider birthProvider, FortuneProvider fortuneProvider) async {
     if (fortuneProvider.isLoading) return;
-
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (!authProvider.isLoggedIn) {
-      final result = await Navigator.of(context).push<bool>(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-      );
-      if (result != true) return;
-    }
-
-    final ticketProvider = Provider.of<TicketProvider>(context, listen: false);
-    // 이미 캐시된 결과가 있으면 티켓 미소모
-    if (fortuneProvider.dailyFortune != null) {
-      await fortuneProvider.fetchDailyFortune(birthProvider.birthInfo!);
-      return;
-    }
-
-    try {
-      await ticketProvider.consumeTicket('daily');
-    } on InsufficientTicketsException {
-      if (context.mounted) _showInsufficientDialog(context);
-      return;
-    }
-    if (context.mounted) {
-      await fortuneProvider.fetchDailyFortune(birthProvider.birthInfo!);
-    }
-  }
-
-  void _showInsufficientDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('티켓 부족'),
-        content: const Text('티켓이 부족합니다.\n마이페이지에서 티켓을 구매해 주세요.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('확인'),
-          ),
-        ],
-      ),
-    );
+    await fortuneProvider.fetchDailyFortune(birthProvider.birthInfo!);
   }
 
   Widget _emptyState(BuildContext context, BirthInfoProvider birthProvider, FortuneProvider fortuneProvider) {
@@ -128,9 +84,9 @@ class DailyScreen extends StatelessWidget {
           ],
           const SizedBox(height: 24),
           FilledButton(
-            onPressed: () => _fetchWithTicket(context, birthProvider, fortuneProvider),
+            onPressed: () => _fetchDaily(context, birthProvider, fortuneProvider),
             style: FilledButton.styleFrom(backgroundColor: const Color(0xFF8A4FFF)),
-            child: const Text('오늘의 운세 보기 (1티켓)'),
+            child: const Text('오늘의 운세 보기'),
           ),
         ],
       ),

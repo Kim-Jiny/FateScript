@@ -19,6 +19,9 @@ class ApiService {
 
   String? _authToken;
 
+  /// 마지막 서비스 호출에서 반환된 티켓 잔액 (consumeTicket 사용 시)
+  int? lastConsumedBalance;
+
   void setAuthToken(String? token) {
     _authToken = token;
   }
@@ -31,30 +34,37 @@ class ApiService {
     return h;
   }
 
-  Future<FortuneResult> getFortune(BirthInfo info) async {
+  Future<FortuneResult> getFortune(BirthInfo info, {bool consumeTicket = false}) async {
+    final body = <String, dynamic>{...info.toJson()};
+    if (consumeTicket) body['consumeTicket'] = true;
+
     final response = await http
         .post(
           Uri.parse('$_baseUrl/api/fortune'),
           headers: _headers,
-          body: jsonEncode(info.toJson()),
+          body: jsonEncode(body),
         )
         .timeout(_timeout);
 
+    if (response.statusCode == 402) throw InsufficientTicketsException();
     if (response.statusCode != 200) {
       throw Exception('사주 해석 요청에 실패했습니다 (${response.statusCode})');
     }
 
-    return FortuneResult.fromJson(
-        jsonDecode(response.body) as Map<String, dynamic>);
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    if (json['_balance'] != null) lastConsumedBalance = json['_balance'] as int;
+    return FortuneResult.fromJson(json);
   }
 
-  Future<DailyFortune> getDailyFortune(BirthInfo info) async {
+  Future<DailyFortune> getDailyFortune(BirthInfo info, {bool consumeTicket = false}) async {
     final now = DateTime.now();
     final clientDate = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-    final body = {
+    final body = <String, dynamic>{
       ...info.toJson(),
       'clientDate': clientDate,
     };
+    if (consumeTicket) body['consumeTicket'] = true;
+
     final response = await http
         .post(
           Uri.parse('$_baseUrl/api/daily'),
@@ -63,22 +73,25 @@ class ApiService {
         )
         .timeout(_timeout);
 
+    if (response.statusCode == 402) throw InsufficientTicketsException();
     if (response.statusCode != 200) {
       throw Exception('오늘의 운세 요청에 실패했습니다 (${response.statusCode})');
     }
 
-    return DailyFortune.fromJson(
-        jsonDecode(response.body) as Map<String, dynamic>);
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    if (json['_balance'] != null) lastConsumedBalance = json['_balance'] as int;
+    return DailyFortune.fromJson(json);
   }
 
-  Future<NameAnalysisResult> analyzeName(BirthInfo info, String name) async {
-    final body = {
+  Future<NameAnalysisResult> analyzeName(BirthInfo info, String name, {bool consumeTicket = false}) async {
+    final body = <String, dynamic>{
       'mode': 'analyze',
       'name': name,
       'birthDate': info.birthDate,
       'birthTime': info.birthTime ?? 'unknown',
       'gender': info.gender,
     };
+    if (consumeTicket) body['consumeTicket'] = true;
 
     final response = await http
         .post(
@@ -88,23 +101,26 @@ class ApiService {
         )
         .timeout(const Duration(seconds: 60));
 
+    if (response.statusCode == 402) throw InsufficientTicketsException();
     if (response.statusCode != 200) {
       throw Exception('이름 분석 요청에 실패했습니다 (${response.statusCode})');
     }
 
-    return NameAnalysisResult.fromJson(
-        jsonDecode(response.body) as Map<String, dynamic>);
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    if (json['_balance'] != null) lastConsumedBalance = json['_balance'] as int;
+    return NameAnalysisResult.fromJson(json);
   }
 
   Future<NameRecommendResult> recommendNames(
-      BirthInfo info, String lastName) async {
-    final body = {
+      BirthInfo info, String lastName, {bool consumeTicket = false}) async {
+    final body = <String, dynamic>{
       'mode': 'recommend',
       'lastName': lastName,
       'birthDate': info.birthDate,
       'birthTime': info.birthTime ?? 'unknown',
       'gender': info.gender,
     };
+    if (consumeTicket) body['consumeTicket'] = true;
 
     final response = await http
         .post(
@@ -114,17 +130,19 @@ class ApiService {
         )
         .timeout(const Duration(seconds: 60));
 
+    if (response.statusCode == 402) throw InsufficientTicketsException();
     if (response.statusCode != 200) {
       throw Exception('이름 추천 요청에 실패했습니다 (${response.statusCode})');
     }
 
-    return NameRecommendResult.fromJson(
-        jsonDecode(response.body) as Map<String, dynamic>);
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    if (json['_balance'] != null) lastConsumedBalance = json['_balance'] as int;
+    return NameRecommendResult.fromJson(json);
   }
 
   Future<CompatibilityResult> getCompatibility(
-      BirthInfo myInfo, BirthInfo partnerInfo, String relationship) async {
-    final body = {
+      BirthInfo myInfo, BirthInfo partnerInfo, String relationship, {bool consumeTicket = false}) async {
+    final body = <String, dynamic>{
       'myBirthDate': myInfo.birthDate,
       'myBirthTime': myInfo.birthTime ?? 'unknown',
       'myGender': myInfo.gender,
@@ -133,6 +151,7 @@ class ApiService {
       'partnerGender': partnerInfo.gender,
       'relationship': relationship,
     };
+    if (consumeTicket) body['consumeTicket'] = true;
 
     final response = await http
         .post(
@@ -142,12 +161,14 @@ class ApiService {
         )
         .timeout(_timeout);
 
+    if (response.statusCode == 402) throw InsufficientTicketsException();
     if (response.statusCode != 200) {
       throw Exception('궁합 분석 요청에 실패했습니다 (${response.statusCode})');
     }
 
-    return CompatibilityResult.fromJson(
-        jsonDecode(response.body) as Map<String, dynamic>);
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    if (json['_balance'] != null) lastConsumedBalance = json['_balance'] as int;
+    return CompatibilityResult.fromJson(json);
   }
 
   // ── Auth API ──
@@ -580,27 +601,34 @@ class ApiService {
     required String eventType,
     required String startDate,
     required String endDate,
+    bool consumeTicket = false,
   }) async {
+    final body = <String, dynamic>{
+      'birthDate': birthDate,
+      'birthTime': birthTime,
+      'gender': gender,
+      'eventType': eventType,
+      'startDate': startDate,
+      'endDate': endDate,
+    };
+    if (consumeTicket) body['consumeTicket'] = true;
+
     final response = await http
         .post(
           Uri.parse('$_baseUrl/api/auspicious-date'),
           headers: _headers,
-          body: jsonEncode({
-            'birthDate': birthDate,
-            'birthTime': birthTime,
-            'gender': gender,
-            'eventType': eventType,
-            'startDate': startDate,
-            'endDate': endDate,
-          }),
+          body: jsonEncode(body),
         )
         .timeout(const Duration(seconds: 90));
 
+    if (response.statusCode == 402) throw InsufficientTicketsException();
     if (response.statusCode != 200) {
       throw Exception('택일 조회에 실패했습니다 (${response.statusCode})');
     }
 
-    return jsonDecode(response.body) as Map<String, dynamic>;
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    if (json['_balance'] != null) lastConsumedBalance = json['_balance'] as int;
+    return json;
   }
 
   // ── Team Compatibility API ──
@@ -608,23 +636,61 @@ class ApiService {
   Future<Map<String, dynamic>> getTeamCompatibility({
     required List<Map<String, dynamic>> members,
     required String relationship,
+    bool consumeTicket = false,
   }) async {
+    final body = <String, dynamic>{
+      'members': members,
+      'relationship': relationship,
+    };
+    if (consumeTicket) body['consumeTicket'] = true;
+
     final response = await http
         .post(
           Uri.parse('$_baseUrl/api/team-compatibility'),
           headers: _headers,
-          body: jsonEncode({
-            'members': members,
-            'relationship': relationship,
-          }),
+          body: jsonEncode(body),
         )
         .timeout(const Duration(seconds: 90));
 
+    if (response.statusCode == 402) throw InsufficientTicketsException();
     if (response.statusCode != 200) {
       throw Exception('팀 궁합 분석에 실패했습니다 (${response.statusCode})');
     }
 
-    return jsonDecode(response.body) as Map<String, dynamic>;
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    if (json['_balance'] != null) lastConsumedBalance = json['_balance'] as int;
+    return json;
+  }
+
+  // ── Team Compatibility History API ──
+
+  Future<List<Map<String, dynamic>>> getTeamCompatibilityHistory() async {
+    final response = await http
+        .get(
+          Uri.parse('$_baseUrl/api/team-compatibility'),
+          headers: _headers,
+        )
+        .timeout(_timeout);
+
+    if (response.statusCode != 200) {
+      throw Exception('팀 궁합 히스토리 조회에 실패했습니다 (${response.statusCode})');
+    }
+
+    final list = jsonDecode(response.body) as List;
+    return list.map((e) => e as Map<String, dynamic>).toList();
+  }
+
+  Future<void> deleteTeamCompatibilityHistory(int id) async {
+    final response = await http
+        .delete(
+          Uri.parse('$_baseUrl/api/team-compatibility/$id'),
+          headers: _headers,
+        )
+        .timeout(_timeout);
+
+    if (response.statusCode != 200) {
+      throw Exception('팀 궁합 히스토리 삭제에 실패했습니다 (${response.statusCode})');
+    }
   }
 
   // ── PDF API ──

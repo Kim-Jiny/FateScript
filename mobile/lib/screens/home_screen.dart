@@ -1,10 +1,13 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../providers/auth_provider.dart';
 import '../providers/birth_info_provider.dart';
 import '../providers/fortune_provider.dart';
+import '../services/ad_service.dart';
 import '../services/api_service.dart';
 import 'input_screen.dart';
 import 'daily_screen.dart';
@@ -24,11 +27,39 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   String? _referralCode;
   bool _referralLoading = false;
+  BannerAd? _bannerAd;
+  bool _bannerLoaded = false;
 
   @override
   void initState() {
     super.initState();
     _loadReferralCode();
+    _loadBannerAd();
+  }
+
+  void _loadBannerAd() {
+    if (!Platform.isAndroid) return;
+    _bannerAd = BannerAd(
+      adUnitId: 'ca-app-pub-2707874353926722/9601900377',
+      size: AdSize.banner,
+      request: const AdRequest(),
+      listener: BannerAdListener(
+        onAdLoaded: (ad) {
+          if (mounted) setState(() => _bannerLoaded = true);
+        },
+        onAdFailedToLoad: (ad, error) {
+          debugPrint('[HomeScreen] Banner failed: $error');
+          ad.dispose();
+          _bannerAd = null;
+        },
+      ),
+    )..load();
+  }
+
+  @override
+  void dispose() {
+    _bannerAd?.dispose();
+    super.dispose();
   }
 
   Future<void> _loadReferralCode() async {
@@ -160,6 +191,16 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ],
               ),
+              if (_bannerLoaded && _bannerAd != null) ...[
+                const SizedBox(height: 16),
+                Center(
+                  child: SizedBox(
+                    width: _bannerAd!.size.width.toDouble(),
+                    height: _bannerAd!.size.height.toDouble(),
+                    child: AdWidget(ad: _bannerAd!),
+                  ),
+                ),
+              ],
               const SizedBox(height: 20),
 
               // 사주 입력 버튼

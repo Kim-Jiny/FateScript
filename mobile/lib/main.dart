@@ -8,12 +8,14 @@ import 'providers/birth_info_provider.dart';
 import 'providers/fortune_provider.dart';
 import 'providers/ticket_provider.dart';
 import 'providers/compatibility_prefill_provider.dart';
+import 'services/ad_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  AdService().initialize();
 
   final authProvider = AuthProvider();
   await authProvider.waitForAuthReady();

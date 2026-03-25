@@ -1,15 +1,72 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:provider/provider.dart';
 import '../providers/birth_info_provider.dart';
 import '../providers/fortune_provider.dart';
+import '../services/ad_service.dart';
 import '../widgets/loading_overlay.dart';
 import '../widgets/share_button.dart';
 import '../widgets/pdf_button.dart';
 import 'input_screen.dart';
 
-class DailyScreen extends StatelessWidget {
+class DailyScreen extends StatefulWidget {
   const DailyScreen({super.key});
+
+  @override
+  State<DailyScreen> createState() => _DailyScreenState();
+}
+
+class _DailyScreenState extends State<DailyScreen> {
+  bool _adLoading = false;
+
+  Future<void> _fetchWithAd(BirthInfoProvider birthProvider, FortuneProvider fortuneProvider) async {
+    if (fortuneProvider.isLoading || _adLoading) return;
+
+    if (!Platform.isAndroid) {
+      await fortuneProvider.fetchDailyFortune(birthProvider.birthInfo!);
+      return;
+    }
+
+    final adService = AdService();
+
+    if (adService.isRewardedAdReady) {
+      await adService.showRewardedAd(
+        onRewarded: () {
+          fortuneProvider.fetchDailyFortune(birthProvider.birthInfo!);
+        },
+        onAdNotAvailable: () {
+          fortuneProvider.fetchDailyFortune(birthProvider.birthInfo!);
+        },
+      );
+    } else {
+      // Ad not ready — load and wait
+      setState(() => _adLoading = true);
+      adService.loadRewardedAd();
+      // Wait up to 5 seconds for the ad to load
+      for (int i = 0; i < 50; i++) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        if (adService.isRewardedAdReady) break;
+      }
+      if (!mounted) return;
+      setState(() => _adLoading = false);
+
+      if (adService.isRewardedAdReady) {
+        await adService.showRewardedAd(
+          onRewarded: () {
+            fortuneProvider.fetchDailyFortune(birthProvider.birthInfo!);
+          },
+          onAdNotAvailable: () {
+            fortuneProvider.fetchDailyFortune(birthProvider.birthInfo!);
+          },
+        );
+      } else {
+        // Ad failed to load — allow access anyway
+        await fortuneProvider.fetchDailyFortune(birthProvider.birthInfo!);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,8 +90,8 @@ class DailyScreen extends StatelessWidget {
           daily == null
               ? _emptyState(context, birthProvider, fortuneProvider)
               : _resultView(context, daily, fortuneProvider, birthProvider),
-          if (fortuneProvider.isLoading)
-            const LoadingOverlay(message: '운명선생이 오늘의 운세를 살피고 있습니다...'),
+          if (fortuneProvider.isLoading || _adLoading)
+            LoadingOverlay(message: _adLoading ? '광고를 불러오는 중...' : '운명선생이 오늘의 운세를 살피고 있습니다...'),
         ],
       ),
     );
@@ -63,11 +120,6 @@ class DailyScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _fetchDaily(BuildContext context, BirthInfoProvider birthProvider, FortuneProvider fortuneProvider) async {
-    if (fortuneProvider.isLoading) return;
-    await fortuneProvider.fetchDailyFortune(birthProvider.birthInfo!);
-  }
-
   Widget _emptyState(BuildContext context, BirthInfoProvider birthProvider, FortuneProvider fortuneProvider) {
     return Center(
       child: Column(
@@ -84,7 +136,7 @@ class DailyScreen extends StatelessWidget {
           ],
           const SizedBox(height: 24),
           FilledButton(
-            onPressed: () => _fetchDaily(context, birthProvider, fortuneProvider),
+            onPressed: () => _fetchWithAd(birthProvider, fortuneProvider),
             style: FilledButton.styleFrom(backgroundColor: const Color(0xFF8A4FFF)),
             child: const Text('오늘의 운세 보기'),
           ),

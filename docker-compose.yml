@@ -5,15 +5,16 @@ services:
     build: ./server
     container_name: fate-script
     restart: unless-stopped
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     ports:
       - "3002:3000"
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - DATABASE_URL=${DATABASE_URL}
-      - FIREBASE_SERVICE_ACCOUNT=${FIREBASE_SERVICE_ACCOUNT}
     env_file:
-      - .env
+      - ./server/.env
     depends_on:
       db:
         condition: service_healthy

@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import pool from '../config/db.js';
@@ -5,6 +6,11 @@ import { verifyPurchaseReceipt } from '../services/iap-verify.js';
 import { TICKET_COST } from '../utils/ticket-consume.js';
 
 const router = Router();
+
+/** 앱의 obfuscatedAccountIdFor()와 동일한 계산 (SHA-256 hex) */
+function obfuscatedAccountIdFor(uid) {
+  return crypto.createHash('sha256').update(uid, 'utf8').digest('hex');
+}
 
 /**
  * GET /api/tickets/products — 활성 상품 목록 (인증 불필요)
@@ -125,7 +131,20 @@ router.post('/verify-purchase', requireAuth, async (req, res) => {
     } catch (verifyErr) {
       console.error(`[IAP:verify-purchase] 영수증 검증 실패 (${platform}):`, verifyErr.message);
       console.error(`[IAP:verify-purchase] 에러 스택:`, verifyErr.stack);
-      return res.status(403).json({ error: '영수증 검증에 실패했습니다.', detail: verifyErr.message });
+      return res.status(403).json({ error: '영수증 검증에 실패했습니다.' });
+    }
+
+    // 구매를 시작한 계정과 요청한 계정이 같은지 확인.
+    // 구버전 앱은 obfuscatedAccountId를 보내지 않으므로 값이 있을 때만 검사한다.
+    if (verifyResult.obfuscatedAccountId) {
+      const expected = obfuscatedAccountIdFor(req.uid);
+      if (verifyResult.obfuscatedAccountId !== expected) {
+        console.error(`[IAP:verify-purchase] 계정 불일치! uid: ${req.uid}, 영수증 accountId: ${verifyResult.obfuscatedAccountId}`);
+        return res.status(403).json({ error: '다른 계정에서 결제된 영수증입니다.' });
+      }
+      console.log('[IAP:verify-purchase] 계정 일치 확인 완료');
+    } else {
+      console.warn(`[IAP:verify-purchase] obfuscatedAccountId 없음 (구버전 앱 가능) — uid: ${req.uid}`);
     }
 
     // transactionId를 중복 체크 키로 사용 (StoreKit 2는 매번 다른 JWS를 생성하므로)
@@ -199,76 +218,9 @@ router.post('/verify-purchase', requireAuth, async (req, res) => {
   }
 });
 
-/**
- * POST /api/tickets/restore-purchases — iOS 구매 복원
- */
-router.post('/restore-purchases', requireAuth, async (req, res) => {
-  try {
-    // 복원 시 클라이언트가 보내는 과거 구매 목록 처리
-    const { purchases } = req.body ?? {};
-    if (!Array.isArray(purchases)) {
-      return res.status(400).json({ error: 'purchases 배열이 필요합니다.' });
-    }
-
-    let restoredCount = 0;
-    for (const p of purchases) {
-      const { productId, purchaseToken, platform } = p;
-      if (!productId || !purchaseToken) continue;
-
-      // 이미 처리된 것은 스킵
-      const { rows: existing } = await pool.query(
-        `SELECT id FROM ticket_transactions WHERE ref_id = $1 AND type = 'purchase'`,
-        [purchaseToken],
-      );
-      if (existing.length > 0) continue;
-
-      // 영수증 검증
-      try {
-        await verifyPurchaseReceipt(platform || 'ios', productId, purchaseToken);
-      } catch (verifyErr) {
-        console.warn(`[IAP] Restore verification failed for ${productId}:`, verifyErr.message);
-        continue;
-      }
-
-      const { rows: productRows } = await pool.query(
-        'SELECT ticket_count FROM iap_products WHERE product_id = $1',
-        [productId],
-      );
-      if (productRows.length === 0) continue;
-      const ticketCount = productRows[0].ticket_count;
-
-      await pool.query(
-        `INSERT INTO tickets (uid, balance, updated_at)
-         VALUES ($1, $2, now())
-         ON CONFLICT (uid) DO UPDATE
-         SET balance = tickets.balance + $2, updated_at = now()`,
-        [req.uid, ticketCount],
-      );
-
-      const { rows } = await pool.query(
-        'SELECT balance FROM tickets WHERE uid = $1',
-        [req.uid],
-      );
-
-      await pool.query(
-        `INSERT INTO ticket_transactions (uid, type, amount, balance_after, ref_id, platform, product_id)
-         VALUES ($1, 'purchase', $2, $3, $4, $5, $6)`,
-        [req.uid, ticketCount, rows[0].balance, purchaseToken, platform || 'ios', productId],
-      );
-
-      restoredCount++;
-    }
-
-    const { rows } = await pool.query(
-      'SELECT balance FROM tickets WHERE uid = $1',
-      [req.uid],
-    );
-
-    res.json({ balance: rows[0]?.balance ?? 0, restoredCount });
-  } catch (err) {
-    console.error('Restore purchases error:', err);
-    res.status(500).json({ error: '구매 복원 중 오류가 발생했습니다.' });
-  }
-});
+// POST /api/tickets/restore-purchases 는 제거되었다.
+// 중복 체크 키가 verify-purchase(transactionId/orderId)와 달리 purchaseToken이라
+// 같은 구매가 두 번 지급됐고, 트랜잭션·advisory lock도 없었다.
+// 앱에서 호출하는 곳이 없으므로 복원이 필요해지면 verify-purchase 경로를 재사용할 것.
 
 export default router;

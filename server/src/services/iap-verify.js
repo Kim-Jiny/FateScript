@@ -184,6 +184,15 @@ function getAndroidPublisher() {
   return androidPublisher;
 }
 
+// purchases.products.get 의 purchaseType — 일반(실매출) 구매일 때는 아예 필드가 없다.
+// 0=라이선스 테스터, 1=프로모션 코드, 2=보상형 광고. 셋 다 실제 결제금액이 없으므로
+// 관리자 화면의 Production/Sandbox 구분에서 iOS와 동일하게 'Sandbox'로 묶는다.
+const GOOGLE_PURCHASE_TYPE_LABEL = {
+  0: 'Test',
+  1: 'Promo',
+  2: 'Rewarded',
+};
+
 async function verifyGoogleReceipt(productId, purchaseToken) {
   console.log(`[IAP:Google] 영수증 검증 시작 — productId: ${productId}, token 길이: ${purchaseToken?.length || 0}`);
   const publisher = getAndroidPublisher();
@@ -207,10 +216,26 @@ async function verifyGoogleReceipt(productId, purchaseToken) {
     throw new Error(`Google 구매 상태 비정상: ${purchase.purchaseState}`);
   }
 
-  console.log(`[IAP:Google] 검증 성공 — orderId: ${purchase.orderId}`);
+  // 라이선스 테스터/프로모션 결제를 실매출과 구분한다.
+  // 일반 구매는 purchaseType 필드 자체가 없으므로 Production으로 본다.
+  const purchaseType = purchase.purchaseType;
+  const isRealPurchase = purchaseType === undefined || purchaseType === null;
+  const environment = isRealPurchase ? 'Production' : 'Sandbox';
+  if (!isRealPurchase) {
+    console.log(`[IAP:Google] 비매출 결제 감지 — purchaseType: ${purchaseType} (${GOOGLE_PURCHASE_TYPE_LABEL[purchaseType] ?? 'Unknown'})`);
+  }
+
+  // orderId는 테스트 결제 등에서 비어 있을 수 있으므로 purchaseToken으로 대체.
+  const transactionId = purchase.orderId || `token:${purchaseToken}`;
+
+  console.log(`[IAP:Google] 검증 성공 — orderId: ${purchase.orderId}, environment: ${environment}`);
   return {
     productId,
+    transactionId,
     orderId: purchase.orderId,
+    environment,
+    // 구매를 특정 계정에 묶기 위해 클라이언트가 보낸 obfuscatedAccountId
+    obfuscatedAccountId: purchase.obfuscatedExternalAccountId ?? null,
     valid: true,
   };
 }

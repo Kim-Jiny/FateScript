@@ -1,10 +1,20 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:crypto/crypto.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'api_service.dart';
+
+/// Google Play에 넘길 난독화된 계정 ID.
+/// uid를 그대로 보내지 않도록 SHA-256 해시를 쓴다 (64자, Play 상한과 동일).
+/// 서버도 같은 방식으로 계산해 구매–계정 일치를 검증한다.
+String? obfuscatedAccountIdFor(String? uid) {
+  if (uid == null || uid.isEmpty) return null;
+  return sha256.convert(utf8.encode(uid)).toString();
+}
 
 class IapService {
   static final IapService _instance = IapService._internal();
@@ -102,8 +112,14 @@ class IapService {
       return false;
     }
 
-    debugPrint('[IAP] 구매 진행 — ${product.title} (${product.price})');
-    final purchaseParam = PurchaseParam(productDetails: product);
+    // applicationUserName은 Android에서 obfuscatedAccountId로 전달되어
+    // 구매가 어느 계정에서 시작됐는지 서버가 확인할 수 있게 한다.
+    final accountId = obfuscatedAccountIdFor(FirebaseAuth.instance.currentUser?.uid);
+    debugPrint('[IAP] 구매 진행 — ${product.title} (${product.price}), accountId: ${accountId != null}');
+    final purchaseParam = PurchaseParam(
+      productDetails: product,
+      applicationUserName: accountId,
+    );
     return await _iap.buyConsumable(purchaseParam: purchaseParam);
   }
 

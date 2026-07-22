@@ -26,6 +26,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const port = Number(process.env.PORT ?? 3000);
 
+// 리버스 프록시(nginx 등) 뒤에서 실행되므로 X-Forwarded-For를 신뢰해야
+// rate limit이 프록시 IP 하나로 뭉쳐지지 않는다. 프록시 홉 수에 맞춰 설정할 것.
+app.set('trust proxy', Number(process.env.TRUST_PROXY ?? 1));
+
 app.use(cors());
 app.use(express.json({ limit: '5mb' }));
 
@@ -329,10 +333,15 @@ app.get('/health', (_req, res) => {
   });
 });
 
+// rate limit은 각 라우터의 AI 생성 엔드포인트에만 붙어 있다 (middleware/rate-limit.js).
+// 무료 조회 라우트(/api/fortune/saju, 히스토리 등)는 한도를 소모하지 않는다.
 app.use('/api/fortune', fortuneRoutes);
 app.use('/api/daily', dailyRoutes);
 app.use('/api/name-analysis', nameAnalysisRoutes);
 app.use('/api/compatibility', compatibilityRoutes);
+app.use('/api/auspicious-date', auspiciousDateRoutes);
+app.use('/api/team-compatibility', teamCompatibilityRoutes);
+
 app.use('/api/user', userRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/inquiry', inquiryRoutes);
@@ -340,8 +349,6 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/share', shareRoutes);
 app.use('/api/manseryeok', manseryeokRoutes);
 app.use('/api/fortune-trend', fortuneTrendRoutes);
-app.use('/api/auspicious-date', auspiciousDateRoutes);
-app.use('/api/team-compatibility', teamCompatibilityRoutes);
 app.use('/api/pdf', pdfRoutes);
 
 // .well-known 파일에 Content-Type: application/json 보장

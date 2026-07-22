@@ -61,11 +61,16 @@ router.get('/history', requireAuth, async (req, res) => {
 });
 
 /**
- * POST /api/tickets/consume — 서비스별 티켓 소모
- * body: { type } — fortune type (daily, fortune, name_analyze, name_recommend, compatibility)
+ * POST /api/tickets/consume — [DEPRECATED] 사전 차감 엔드포인트
+ *
+ * 티켓 차감은 이제 각 서비스 라우트(fortune, compatibility, name-analysis,
+ * auspicious-date, team-compatibility)가 결과를 만들면서 직접 수행한다.
+ * 여기서 차감하면 이미 배포된 구버전 앱이 이중으로 차감되므로,
+ * 잔액 사전 확인(부족하면 402)만 하고 실제 차감은 하지 않는다.
+ *
+ * 구버전 앱이 사라지면 이 엔드포인트째로 삭제할 것.
  */
 router.post('/consume', requireAuth, async (req, res) => {
-  const client = await pool.connect();
   try {
     const { type } = req.body ?? {};
     if (!type) {
@@ -74,41 +79,21 @@ router.post('/consume', requireAuth, async (req, res) => {
 
     const cost = TICKET_COST[type] ?? 1;
 
-    await client.query('BEGIN');
-
-    const { rows } = await client.query(
-      'SELECT balance FROM tickets WHERE uid = $1 FOR UPDATE',
+    const { rows } = await pool.query(
+      'SELECT balance FROM tickets WHERE uid = $1',
       [req.uid],
     );
+    const balance = rows.length > 0 ? rows[0].balance : 0;
 
-    const currentBalance = rows.length > 0 ? rows[0].balance : 0;
-
-    if (currentBalance < cost) {
-      await client.query('ROLLBACK');
-      return res.status(402).json({ error: '티켓이 부족합니다.', balance: currentBalance, required: cost });
+    // 잔액 부족은 여기서 미리 걸러 구버전 앱의 '티켓 부족' 다이얼로그를 유지한다.
+    if (balance < cost) {
+      return res.status(402).json({ error: '티켓이 부족합니다.', balance, required: cost });
     }
 
-    const newBalance = currentBalance - cost;
-
-    await client.query(
-      `UPDATE tickets SET balance = $1, updated_at = now() WHERE uid = $2`,
-      [newBalance, req.uid],
-    );
-
-    await client.query(
-      `INSERT INTO ticket_transactions (uid, type, amount, balance_after, ref_id)
-       VALUES ($1, 'consume', $2, $3, $4)`,
-      [req.uid, -cost, newBalance, type],
-    );
-
-    await client.query('COMMIT');
-    res.json({ balance: newBalance });
+    res.json({ balance });
   } catch (err) {
-    await client.query('ROLLBACK');
-    console.error('Consume ticket error:', err);
-    res.status(500).json({ error: '티켓 소모 중 오류가 발생했습니다.' });
-  } finally {
-    client.release();
+    console.error('Consume ticket precheck error:', err);
+    res.status(500).json({ error: '티켓 확인 중 오류가 발생했습니다.' });
   }
 });
 

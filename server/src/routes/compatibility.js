@@ -1,17 +1,18 @@
 import { Router } from 'express';
 import { getCompatibility, saveCompatibilityHistory, getCompatibilityHistory, deleteCompatibilityHistory } from '../services/fortune.js';
-import { optionalAuth, requireAuth } from '../middleware/auth.js';
+import { requireAuth } from '../middleware/auth.js';
+import { aiLimiter } from '../middleware/rate-limit.js';
 import { consumeTicketForService, refundTicketForService } from '../utils/ticket-consume.js';
 import pool from '../config/db.js';
 
 const router = Router();
 
-router.post('/', optionalAuth, async (req, res) => {
+router.post('/', requireAuth, aiLimiter, async (req, res) => {
   try {
     const {
       myBirthDate, myBirthTime, myGender,
       partnerBirthDate, partnerBirthTime, partnerGender,
-      relationship, consumeTicket,
+      relationship,
     } = req.body ?? {};
 
     if (!myBirthDate || !myGender || !partnerBirthDate || !partnerGender || !relationship) {
@@ -19,7 +20,7 @@ router.post('/', optionalAuth, async (req, res) => {
     }
 
     // 기존 결과 확인 (티켓 차감 전에 중복 방지)
-    if (consumeTicket && req.uid) {
+    {
       const { rows: existing } = await pool.query(
         `SELECT result FROM compatibility_history
          WHERE uid = $1
@@ -34,15 +35,13 @@ router.post('/', optionalAuth, async (req, res) => {
       }
     }
 
-    // 티켓 차감 (요청 시)
+    // 티켓 차감 — 클라이언트 플래그와 무관하게 서버가 항상 차감한다.
     let ticketBalance;
-    if (consumeTicket && req.uid) {
-      const ticketResult = await consumeTicketForService(req.uid, 'compatibility');
-      if (!ticketResult.success) {
-        return res.status(402).json({ error: '티켓이 부족합니다.', balance: ticketResult.balance, required: ticketResult.required });
-      }
-      ticketBalance = ticketResult.balance;
+    const ticketResult = await consumeTicketForService(req.uid, 'compatibility');
+    if (!ticketResult.success) {
+      return res.status(402).json({ error: '티켓이 부족합니다.', balance: ticketResult.balance, required: ticketResult.required });
     }
+    ticketBalance = ticketResult.balance;
 
     try {
       function parsePerson(birthDate, birthTime, gender) {
@@ -83,7 +82,7 @@ router.post('/', optionalAuth, async (req, res) => {
       if (ticketBalance !== undefined) response._balance = ticketBalance;
       res.json(response);
     } catch (serviceErr) {
-      if (consumeTicket && req.uid && ticketBalance !== undefined) {
+      if (ticketBalance !== undefined) {
         await refundTicketForService(req.uid, 'compatibility');
       }
       throw serviceErr;

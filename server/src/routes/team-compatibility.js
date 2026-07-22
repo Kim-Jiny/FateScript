@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
+import { aiLimiter } from '../middleware/rate-limit.js';
 import { getSajuInfo } from '../services/saju.js';
 import ai from '../config/gemini.js';
 import pool from '../config/db.js';
@@ -54,9 +55,9 @@ router.delete('/:id', requireAuth, async (req, res) => {
  * POST /api/team-compatibility
  * body: { members: [{name?, birthDate, birthTime, gender}], relationship }
  */
-router.post('/', requireAuth, async (req, res) => {
+router.post('/', requireAuth, aiLimiter, async (req, res) => {
   try {
-    const { members, relationship, consumeTicket } = req.body ?? {};
+    const { members, relationship } = req.body ?? {};
 
     if (!Array.isArray(members) || members.length < 3 || members.length > 6) {
       return res.status(400).json({ error: '멤버는 3~6명이어야 합니다.' });
@@ -82,15 +83,13 @@ router.post('/', requireAuth, async (req, res) => {
       return res.json(cached[0].result);
     }
 
-    // 티켓 차감 (요청 시)
+    // 티켓 차감 — 클라이언트 플래그와 무관하게 서버가 항상 차감한다.
     let ticketBalance;
-    if (consumeTicket) {
-      const ticketResult = await consumeTicketForService(req.uid, 'team_compatibility');
-      if (!ticketResult.success) {
-        return res.status(402).json({ error: '티켓이 부족합니다.', balance: ticketResult.balance, required: ticketResult.required });
-      }
-      ticketBalance = ticketResult.balance;
+    const ticketResult = await consumeTicketForService(req.uid, 'team_compatibility');
+    if (!ticketResult.success) {
+      return res.status(402).json({ error: '티켓이 부족합니다.', balance: ticketResult.balance, required: ticketResult.required });
     }
+    ticketBalance = ticketResult.balance;
 
     try {
 
@@ -142,7 +141,7 @@ router.post('/', requireAuth, async (req, res) => {
       if (ticketBalance !== undefined) result._balance = ticketBalance;
       res.json(result);
     } catch (serviceErr) {
-      if (consumeTicket && ticketBalance !== undefined) {
+      if (ticketBalance !== undefined) {
         await refundTicketForService(req.uid, 'team_compatibility');
       }
       throw serviceErr;

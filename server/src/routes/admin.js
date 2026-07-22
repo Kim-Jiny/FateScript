@@ -479,7 +479,14 @@ router.get('/purchases', adminAuth, async (req, res) => {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
     const offset = (page - 1) * limit;
-    const { dateFrom, dateTo, productId, refundStatus, email, environment } = req.query;
+    // 쿼리 파라미터는 배열로 올 수 있으므로(?a=1&a=2) 문자열만 통과시킨다.
+    const str = (v) => (typeof v === 'string' && v !== '' ? v : null);
+    const dateFrom = str(req.query.dateFrom);
+    const dateTo = str(req.query.dateTo);
+    const productId = str(req.query.productId);
+    const email = str(req.query.email);
+    const environment = str(req.query.environment);
+    const refundStatus = str(req.query.refundStatus);
 
     const conditions = ["tt.type = 'purchase'"];
     const params = [];
@@ -542,8 +549,11 @@ router.get('/purchases', adminAuth, async (req, res) => {
 // GET /api/admin/purchases/summary — 구매 요약 통계
 router.get('/purchases/summary', adminAuth, async (req, res) => {
   try {
-    const { environment } = req.query;
-    const envCond = environment ? `AND COALESCE(tt.environment, 'Production') = '${environment.replace(/'/g, '')}'` : '';
+    // 쿼리 파라미터가 배열로 올 수 있으므로(?environment=a&environment=b) 문자열만 받는다.
+    const environment = typeof req.query.environment === 'string' ? req.query.environment : null;
+    // 문자열 보간 대신 파라미터 바인딩. 조건이 없을 땐 $1을 무시하도록 TRUE로 만든다.
+    const envCond = `AND ($1::text IS NULL OR COALESCE(tt.environment, 'Production') = $1)`;
+    const envParams = [environment];
 
     const [todayRev, totalRev, totalRefund, platformRev] = await Promise.all([
       pool.query(`
@@ -551,13 +561,13 @@ router.get('/purchases/summary', adminAuth, async (req, res) => {
         FROM ticket_transactions tt
         LEFT JOIN iap_products p ON p.product_id = COALESCE(tt.product_id, tt.ref_id)
         WHERE tt.type = 'purchase' AND tt.created_at >= CURRENT_DATE ${envCond}
-      `),
+      `, envParams),
       pool.query(`
         SELECT COUNT(*)::int AS count, COALESCE(SUM(p.price_krw), 0)::bigint AS revenue
         FROM ticket_transactions tt
         LEFT JOIN iap_products p ON p.product_id = COALESCE(tt.product_id, tt.ref_id)
         WHERE tt.type = 'purchase' ${envCond}
-      `),
+      `, envParams),
       pool.query(`
         SELECT COUNT(*)::int AS count, COALESCE(SUM(ABS(tt.amount)), 0)::int AS tickets
         FROM ticket_transactions tt
@@ -571,7 +581,7 @@ router.get('/purchases/summary', adminAuth, async (req, res) => {
         LEFT JOIN iap_products p ON p.product_id = COALESCE(tt.product_id, tt.ref_id)
         WHERE tt.type = 'purchase' ${envCond}
         GROUP BY COALESCE(tt.platform, 'unknown')
-      `),
+      `, envParams),
     ]);
 
     const platformMap = {};

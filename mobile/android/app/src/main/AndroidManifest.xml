@@ -1,10 +1,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- SDK 매니페스트 병합에만 의존하지 않도록 앱에서 직접 선언한다. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="com.android.vending.BILLING" />
+    <!-- AdMob (targetSdk 33+ 필수) -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
     <application
         android:label="운명일기"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher"
-        android:usesCleartextTraffic="true">
+        android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -33,6 +37,11 @@
                 <data android:scheme="https"
                       android:host="fate.jiny.shop"
                       android:pathPrefix="/ref/"/>
+                <!-- pathPrefix면 /compatibility 같은 경로까지 잡아 앱만 열리고
+                     아무 동작도 안 하므로 정확히 /compat만 매칭한다. -->
+                <data android:scheme="https"
+                      android:host="fate.jiny.shop"
+                      android:path="/compat"/>
             </intent-filter>
         </activity>
         <meta-data

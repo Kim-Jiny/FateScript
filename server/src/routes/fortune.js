@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { interpretFortune, saveUserResult } from '../services/fortune.js';
-import { optionalAuth } from '../middleware/auth.js';
+import { requireAuth } from '../middleware/auth.js';
+import { aiLimiter } from '../middleware/rate-limit.js';
 import { consumeTicketForService, refundTicketForService } from '../utils/ticket-consume.js';
 import { getSajuInfo } from '../services/saju.js';
 import pool from '../config/db.js';
@@ -44,16 +45,16 @@ router.get('/saju', (req, res) => {
   }
 });
 
-router.post('/', optionalAuth, async (req, res) => {
+router.post('/', requireAuth, aiLimiter, async (req, res) => {
   try {
-    const { birthDate, birthTime, gender, consumeTicket } = req.body ?? {};
+    const { birthDate, birthTime, gender } = req.body ?? {};
 
     if (!birthDate || !gender) {
       return res.status(400).json({ error: 'birthDate와 gender는 필수입니다.' });
     }
 
     // 기존 결과 확인 (티켓 차감 전에 중복 방지)
-    if (consumeTicket && req.uid) {
+    {
       const currentYear = new Date().getFullYear();
       const { rows: existing } = await pool.query(
         `SELECT result FROM user_results
@@ -66,15 +67,13 @@ router.post('/', optionalAuth, async (req, res) => {
       }
     }
 
-    // 티켓 차감 (요청 시)
+    // 티켓 차감 — 클라이언트 플래그와 무관하게 서버가 항상 차감한다.
     let ticketBalance;
-    if (consumeTicket && req.uid) {
-      const ticketResult = await consumeTicketForService(req.uid, 'fortune');
-      if (!ticketResult.success) {
-        return res.status(402).json({ error: '티켓이 부족합니다.', balance: ticketResult.balance, required: ticketResult.required });
-      }
-      ticketBalance = ticketResult.balance;
+    const ticketResult = await consumeTicketForService(req.uid, 'fortune');
+    if (!ticketResult.success) {
+      return res.status(402).json({ error: '티켓이 부족합니다.', balance: ticketResult.balance, required: ticketResult.required });
     }
+    ticketBalance = ticketResult.balance;
 
     try {
       const [year, month, day] = birthDate.split('-').map(Number);
@@ -109,7 +108,7 @@ router.post('/', optionalAuth, async (req, res) => {
       res.json(response);
     } catch (serviceErr) {
       // 서비스 실패 시 티켓 환불
-      if (consumeTicket && req.uid && ticketBalance !== undefined) {
+      if (ticketBalance !== undefined) {
         await refundTicketForService(req.uid, 'fortune');
       }
       throw serviceErr;

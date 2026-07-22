@@ -90,6 +90,7 @@ class _FortuneScreenState extends State<FortuneScreen> {
       );
       if (result != true) return;
     }
+    if (!context.mounted) return;
 
     final ticketProvider = Provider.of<TicketProvider>(context, listen: false);
     // 이미 캐시된 결과가 있으면 티켓 미소모

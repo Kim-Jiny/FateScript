@@ -222,6 +222,31 @@ export async function initDb() {
     END $$;
   `);
 
+  // 결제 중복 지급 방지: ref_id는 purchase 트랜잭션 안에서 유일해야 한다.
+  // advisory lock만으로 막던 것을 DB 제약으로 확정한다.
+  // 기존 데이터에 중복이 있으면 인덱스 생성이 실패하므로, 실패해도 서버는 계속 뜨게 하고
+  // 남은 중복을 로그로 남긴다.
+  try {
+    await pool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_ticket_txn_purchase_ref
+      ON ticket_transactions(ref_id)
+      WHERE type = 'purchase'
+    `);
+  } catch (err) {
+    const { rows } = await pool.query(`
+      SELECT ref_id, COUNT(*)::int AS cnt
+      FROM ticket_transactions
+      WHERE type = 'purchase'
+      GROUP BY ref_id HAVING COUNT(*) > 1
+      ORDER BY cnt DESC LIMIT 20
+    `);
+    console.error(
+      `[initDb] 결제 중복 방지 인덱스 생성 실패 (${err.message}). ` +
+      `중복 ref_id ${rows.length}건 — 수동 정리 필요:`,
+      rows,
+    );
+  }
+
   // 택일 캐시 전체 삭제 (점수 계산 로직 변경)
   const { rowCount: auspiciousCount } = await pool.query('DELETE FROM auspicious_date_cache');
   if (auspiciousCount > 0) console.log(`[initDb] Cleared ${auspiciousCount} auspicious date caches (scoring updated)`);

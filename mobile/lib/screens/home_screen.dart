@@ -7,7 +7,6 @@ import 'package:share_plus/share_plus.dart';
 import '../providers/auth_provider.dart';
 import '../providers/birth_info_provider.dart';
 import '../providers/fortune_provider.dart';
-import '../services/ad_service.dart';
 import '../services/api_service.dart';
 import 'input_screen.dart';
 import 'daily_screen.dart';
@@ -33,7 +32,9 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadReferralCode();
+    if (context.read<AuthProvider>().isLoggedIn) {
+      _loadReferralCode();
+    }
     _loadBannerAd();
   }
 
@@ -139,7 +140,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Text('운명일기', style: Theme.of(context).textTheme.headlineMedium),
               const SizedBox(height: 12),
               Text(
-                '당신의 생년월일과 시간으로\n오늘의 운세와 감정 기록을 연결합니다.',
+                '당신의 생년월일과 시간으로\n사주, 만세력, 운세 해석을 확인합니다.',
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
               const SizedBox(height: 24),

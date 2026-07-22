@@ -729,6 +729,7 @@ class _TeamCompatibilityViewState extends State<TeamCompatibilityView> {
       );
       if (result != true) return;
     }
+    if (!mounted) return;
 
     final ticketProvider = Provider.of<TicketProvider>(context, listen: false);
     try {

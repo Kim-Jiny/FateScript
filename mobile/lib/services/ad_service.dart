@@ -10,6 +10,7 @@ class AdService {
   static const _rewardedAdUnitId = 'ca-app-pub-2707874353926722/6843875092';
 
   RewardedAd? _rewardedAd;
+  bool _isLoading = false;
 
   Future<void> initialize() async {
     if (!Platform.isAndroid) return;
@@ -19,17 +20,23 @@ class AdService {
 
   void loadRewardedAd() {
     if (!Platform.isAndroid) return;
+    // 이미 준비됐거나 로드 중이면 중복 요청하지 않는다.
+    if (_rewardedAd != null || _isLoading) return;
+
+    _isLoading = true;
     RewardedAd.load(
       adUnitId: _rewardedAdUnitId,
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
+          _isLoading = false;
           _rewardedAd = ad;
           debugPrint('[AdService] Rewarded ad loaded');
         },
         onAdFailedToLoad: (error) {
-          debugPrint('[AdService] Rewarded ad failed to load: $error');
+          _isLoading = false;
           _rewardedAd = null;
+          debugPrint('[AdService] Rewarded ad failed to load: $error');
         },
       ),
     );
@@ -45,32 +52,57 @@ class AdService {
     }
 
     if (_rewardedAd == null) {
-      // Ad not loaded yet — try loading and show when ready
+      // 아직 준비 안 됨 — 다음 기회를 위해 미리 받아두고 호출자에게 알린다.
+      loadRewardedAd();
       onAdNotAvailable?.call();
       return;
     }
 
-    _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
+    // 광고를 끝까지 보지 않고 닫아도 호출자가 멈춰 있지 않도록,
+    // 보상 여부와 무관하게 콜백이 정확히 한 번은 불리게 한다.
+    var settled = false;
+    void settle(void Function() action) {
+      if (settled) return;
+      settled = true;
+      action();
+    }
+
+    final ad = _rewardedAd!;
+    _rewardedAd = null;
+
+    ad.fullScreenContentCallback = FullScreenContentCallback(
       onAdDismissedFullScreenContent: (ad) {
         ad.dispose();
-        _rewardedAd = null;
         loadRewardedAd();
+        // 보상 없이 닫힌 경우 — 무료 기능이므로 그대로 통과시킨다.
+        settle(() {
+          if (onAdNotAvailable != null) {
+            onAdNotAvailable();
+          } else {
+            onRewarded();
+          }
+        });
       },
       onAdFailedToShowFullScreenContent: (ad, error) {
         debugPrint('[AdService] Failed to show rewarded ad: $error');
         ad.dispose();
-        _rewardedAd = null;
         loadRewardedAd();
+        settle(() {
+          if (onAdNotAvailable != null) {
+            onAdNotAvailable();
+          } else {
+            onRewarded();
+          }
+        });
       },
     );
 
-    _rewardedAd!.show(
+    ad.show(
       onUserEarnedReward: (ad, reward) {
         debugPrint('[AdService] User earned reward: ${reward.amount} ${reward.type}');
-        onRewarded();
+        settle(onRewarded);
       },
     );
-    _rewardedAd = null;
   }
 
   bool get isRewardedAdReady => Platform.isAndroid && _rewardedAd != null;

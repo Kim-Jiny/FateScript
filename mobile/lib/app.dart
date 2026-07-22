@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
@@ -80,6 +81,7 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
   late final AppLinks _appLinks;
+  StreamSubscription<Uri>? _linkSubscription;
 
   static const _screens = [
     HomeScreen(),
@@ -96,12 +98,25 @@ class _MainShellState extends State<MainShell> {
   }
 
   Future<void> _initDeepLinks() async {
-    // 앱이 링크로 시작된 경우
-    final initialUri = await _appLinks.getInitialLink();
-    if (initialUri != null) _handleDeepLink(initialUri);
+    try {
+      final initialUri = await _appLinks.getInitialLink();
+      if (initialUri != null && mounted) {
+        _handleDeepLink(initialUri);
+      }
+    } catch (e) {
+      debugPrint('[DeepLink] Failed to read initial link: $e');
+    }
 
-    // 앱이 이미 실행 중일 때 링크 수신
-    _appLinks.uriLinkStream.listen(_handleDeepLink);
+    _linkSubscription = _appLinks.uriLinkStream.listen(
+      (uri) {
+        if (mounted) {
+          _handleDeepLink(uri);
+        }
+      },
+      onError: (Object error) {
+        debugPrint('[DeepLink] Stream error: $error');
+      },
+    );
   }
 
   void _handleDeepLink(Uri uri) {
@@ -127,6 +142,12 @@ class _MainShellState extends State<MainShell> {
         setState(() => _currentIndex = 2); // 궁합 탭
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _linkSubscription?.cancel();
+    super.dispose();
   }
 
   @override

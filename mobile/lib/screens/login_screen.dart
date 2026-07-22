@@ -139,12 +139,12 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _syncAfterLogin(BuildContext context) async {
     final birthProvider =
         Provider.of<BirthInfoProvider>(context, listen: false);
-    await birthProvider.syncWithServer();
     final ticketProvider =
         Provider.of<TicketProvider>(context, listen: false);
-    await ticketProvider.loadBalance();
     final fortuneProvider =
         Provider.of<FortuneProvider>(context, listen: false);
+    await birthProvider.syncWithServer();
+    await ticketProvider.loadBalance();
     await fortuneProvider.loadFromServer(birthProvider.birthInfo);
   }
 

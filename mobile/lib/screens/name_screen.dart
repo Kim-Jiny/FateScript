@@ -1260,6 +1260,7 @@ class _NameScreenState extends State<NameScreen> {
       );
       if (result != true) return false;
     }
+    if (!mounted) return false;
 
     final ticketProvider = Provider.of<TicketProvider>(context, listen: false);
     try {
@@ -1298,6 +1299,7 @@ class _NameScreenState extends State<NameScreen> {
     }
 
     if (!await _checkTicket('name_analyze')) return;
+    if (!mounted) return;
 
     // 선택된 한자로 한자 이름 구성
     String fullName = name;
@@ -1327,6 +1329,7 @@ class _NameScreenState extends State<NameScreen> {
     }
 
     if (!await _checkTicket('name_recommend')) return;
+    if (!mounted) return;
 
     // 선택된 한자로 성씨 구성
     String fullLastName = lastName;

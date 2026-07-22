@@ -81,13 +81,9 @@ class FortuneProvider extends ChangeNotifier {
             await _storage.saveDailyFortune(_dailyFortune!);
           }
         } else if (type == 'name_analyze') {
-          if (_nameAnalysisResult == null) {
-            _nameAnalysisResult = NameAnalysisResult.fromJson(result);
-          }
+          _nameAnalysisResult ??= NameAnalysisResult.fromJson(result);
         } else if (type == 'name_recommend') {
-          if (_nameRecommendResult == null) {
-            _nameRecommendResult = NameRecommendResult.fromJson(result);
-          }
+          _nameRecommendResult ??= NameRecommendResult.fromJson(result);
         }
       }
       notifyListeners();

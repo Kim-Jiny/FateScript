@@ -942,6 +942,7 @@ class _CompatibilityScreenState extends State<CompatibilityScreen> {
       );
       if (result != true) return;
     }
+    if (!mounted) return;
 
     final ticketProvider = Provider.of<TicketProvider>(context, listen: false);
     try {

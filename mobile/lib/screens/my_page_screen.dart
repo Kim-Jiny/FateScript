@@ -7,7 +7,6 @@ import 'package:share_plus/share_plus.dart';
 import '../providers/auth_provider.dart';
 import '../providers/birth_info_provider.dart';
 import '../providers/ticket_provider.dart';
-import '../services/ad_service.dart';
 import '../services/api_service.dart';
 import 'input_screen.dart';
 import 'inquiry_screen.dart';
@@ -30,7 +29,9 @@ class _MyPageScreenState extends State<MyPageScreen> {
   @override
   void initState() {
     super.initState();
-    _loadReferralCode();
+    if (context.read<AuthProvider>().isLoggedIn) {
+      _loadReferralCode();
+    }
     _loadBannerAd();
   }
 
